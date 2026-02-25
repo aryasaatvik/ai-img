@@ -18,7 +18,8 @@
     "dev": "bunli dev",
     "build": "bunli build",
     "release": "bunli release",
-    "start": "bun start"
+    "start": "bun start",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.32",
