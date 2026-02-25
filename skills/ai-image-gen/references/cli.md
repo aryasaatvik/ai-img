@@ -3,6 +3,10 @@
 ## Running the CLI
 
 ```bash
+# Option 1: If installed globally
+ai-img <command> [options]
+
+# Option 2: If running from source
 cd ~/Developer/ai-img
 bun run src/index.ts <command> [options]
 ```

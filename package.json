@@ -3,12 +3,21 @@
   "version": "0.1.0",
   "type": "module",
   "description": "AI Image Generation CLI with bunli + AI SDK",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aryasaatvik/ai-img.git"
+  },
   "bin": {
     "ai-img": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "bunli dev",
     "build": "bunli build",
+    "release": "bunli release",
     "start": "bun start"
   },
   "dependencies": {

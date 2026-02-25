@@ -14,10 +14,16 @@ Generate or edit images using the **ai-img** CLI with Vercel AI SDK.
 
 ## Prerequisites
 
-1. **Install dependencies:**
+1. **Install CLI:**
    ```bash
-   cd ~/Developer/ai-img
+   # Option 1: Install globally with Bun (recommended)
+   bun add -g ai-img
+
+   # Option 2: Clone and build
+   git clone https://github.com/aryasaatvik/ai-img
+   cd ai-img
    bun install
+   bun run build
    ```
 
 2. **Set API key** (choose one):

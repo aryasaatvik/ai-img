@@ -5,11 +5,21 @@ AI Image Generation CLI with bunli + AI SDK. Supports OpenAI, Google (Gemini), a
 ## Install CLI
 
 ```bash
+# Install globally with Bun (recommended)
+bun add -g ai-img
+
+# Or clone and install locally
+git clone https://github.com/aryasaatvik/ai-img
+cd ai-img
 bun install
 bun run build
 ```
 
-## Install as Skill
+## Usage
+
+```bash
+# Generate an image
+ai-img generate -p "a cat sitting on a chair" -o cat.png
 
 Add to your AI agent skills:
 
