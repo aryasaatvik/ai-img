@@ -17,7 +17,7 @@
     "@ai-sdk/fal": "^2.0.21",
     "ai": "^6.0.98",
     "@bunli/core": "^0.5.4",
-    "zod": "^3.23.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bun": "latest",
