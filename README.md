@@ -2,7 +2,35 @@
 
 AI Image Generation CLI with bunli + AI SDK. Supports OpenAI, Google (Gemini), and Fal AI.
 
-## Install
+## Install CLI
+
+```bash
+bun install
+bun run build
+```
+
+## Install as Skill
+
+Add to your AI agent skills:
+
+```bash
+# For Claude Code
+npx skills add aryasaatvik/ai-img -a claude-code
+
+# For OpenCode
+npx skills add aryasaatvik/ai-img -a opencode
+
+# For all agents
+npx skills add aryasaatvik/ai-img
+```
+
+Or install locally:
+
+```bash
+npx skills add ./skills/ai-image-gen
+```
+
+See [skills/ai-image-gen](./skills/ai-image-gen/) for full skill documentation.
 
 ```bash
 bun install
