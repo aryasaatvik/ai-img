@@ -1,7 +1,7 @@
 import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import { generateImage } from "ai";
-import { getModel, requireApiKey, validateProvider, type ProviderName } from "../lib/provider";
+import { getModel, requireApiKey, validateProvider } from "../lib/provider";
 import { writeFile } from "fs/promises";
 import { mkdir } from "fs/promises";
 import { dirname } from "path";
@@ -57,7 +57,6 @@ export const generateCommand = defineCommand({
     }
 
     // Determine output path
-    const outDir = flags.outDir || ".";
     const outputPath = flags.outDir
       ? `${flags.outDir}/${flags.output}`
       : flags.output;
@@ -110,29 +109,7 @@ export const generateCommand = defineCommand({
           ? outputPath.replace(/\.[^.]+$/, `-${i + 1}.${ext}`)
           : outputPath;
 
-        // Handle base64 or URL
-        let data: Uint8Array;
-        if (image.base64) {
-          // Decode base64 to binary
-          const binaryString = atob(image.base64);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let j = 0; j < binaryString.length; j++) {
-            bytes[j] = binaryString.charCodeAt(j);
-          }
-          data = bytes;
-        } else if (image.url) {
-          // Fetch from URL
-          console.log(`Fetching from URL...`);
-          const response = await fetch(image.url);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
-          }
-          data = new Uint8Array(await response.arrayBuffer());
-        } else {
-          throw new Error("No image data available");
-        }
-
-        await writeFile(filePath, data);
+        await writeFile(filePath, image.uint8Array);
         console.log(`Saved: ${filePath}`);
       }
 

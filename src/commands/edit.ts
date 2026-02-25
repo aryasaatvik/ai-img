@@ -95,8 +95,8 @@ export const editCommand = defineCommand({
         model,
         prompt: {
           text: flags.prompt,
-          images: imageBuffers.map(b => ({ data: b.toString("base64"), mimeType: "image/png" })),
-          ...(maskBuffer && { mask: { data: maskBuffer.toString("base64"), mimeType: "image/png" } }),
+          images: imageBuffers,
+          ...(maskBuffer && { mask: maskBuffer }),
         },
         n: flags.count,
         size: flags.size as `${number}x${number}`,
@@ -112,25 +112,7 @@ export const editCommand = defineCommand({
           ? outputPath.replace(/\.[^.]+$/, `-${i + 1}.${ext}`)
           : outputPath;
 
-        let data: Uint8Array;
-        if (image.base64) {
-          const binaryString = atob(image.base64);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let j = 0; j < binaryString.length; j++) {
-            bytes[j] = binaryString.charCodeAt(j);
-          }
-          data = bytes;
-        } else if (image.url) {
-          const response = await fetch(image.url);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
-          }
-          data = new Uint8Array(await response.arrayBuffer());
-        } else {
-          throw new Error("No image data available");
-        }
-
-        await writeFile(filePath, data);
+        await writeFile(filePath, image.uint8Array);
         console.log(`Saved: ${filePath}`);
       }
 

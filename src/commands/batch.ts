@@ -3,8 +3,6 @@ import { z } from "zod";
 import { generateImage } from "ai";
 import { getModel, requireApiKey, validateProvider } from "../lib/provider";
 import { readFile, writeFile, mkdir } from "fs/promises";
-import { readFileSync } from "fs";
-import { dirname } from "path";
 
 interface BatchJob {
   prompt: string;
@@ -91,25 +89,7 @@ export const batchCommand = defineCommand({
                 const outFile = job.out || `output-${jobIndex}-${imgIdx}.png`;
                 const filePath = `${flags.outDir}/${outFile}`;
 
-                let data: Uint8Array;
-                if (image.base64) {
-                  const binaryString = atob(image.base64);
-                  const bytes = new Uint8Array(binaryString.length);
-                  for (let j = 0; j < binaryString.length; j++) {
-                    bytes[j] = binaryString.charCodeAt(j);
-                  }
-                  data = bytes;
-                } else if (image.url) {
-                  const response = await fetch(image.url);
-                  if (!response.ok) {
-                    throw new Error(`Failed to fetch: ${response.statusText}`);
-                  }
-                  data = new Uint8Array(await response.arrayBuffer());
-                } else {
-                  throw new Error("No image data");
-                }
-
-                await writeFile(filePath, data);
+                await writeFile(filePath, image.uint8Array);
                 console.log(`  Saved: ${filePath}`);
               }
 
