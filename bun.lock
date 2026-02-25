@@ -8,7 +8,7 @@
         "@ai-sdk/fal": "^2.0.21",
         "@ai-sdk/google": "^3.0.30",
         "@ai-sdk/openai": "^3.0.32",
-        "@bunli/core": "^0.5.4",
+        "@bunli/core": "^0.5.5",
         "ai": "^6.0.98",
         "zod": "^4.3.6",
       },
@@ -50,7 +50,7 @@
 
     "@babel/types": ["@babel/types@7.29.0", "", { "dependencies": { "@babel/helper-string-parser": "^7.27.1", "@babel/helper-validator-identifier": "^7.28.5" } }, "sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A=="],
 
-    "@bunli/core": ["@bunli/core@0.5.4", "", { "dependencies": { "@bunli/utils": "0.3.2", "@standard-schema/spec": "^1.1.0", "@standard-schema/utils": "^0.3.0", "debug": "^4.4.0", "zod": "^4.3.6" } }, "sha512-JekDsN8lIi+9RP/WluGbwOBzG3RvTnFXiwYyXe2BbQp3bcZSecKyFBsdXmq6imzXr4oRdNJGQpW16jzg3+dl9Q=="],
+    "@bunli/core": ["@bunli/core@0.5.5", "", { "dependencies": { "@bunli/utils": "0.3.2", "@standard-schema/spec": "^1.1.0", "@standard-schema/utils": "^0.3.0", "debug": "^4.4.0", "zod": "^4.3.6" } }, "sha512-stHNlsQp4BpfdkcvOQWtR0nHkD8nFRsbyuY51ERq/nSMvnb2QcY65SofR+QyB/MIOSRWIpDgAZO2Qk9615fAHQ=="],
 
     "@bunli/generator": ["@bunli/generator@0.5.3", "", { "dependencies": { "@babel/parser": "^7.28.6", "@babel/traverse": "^7.28.6", "@bunli/core": "0.5.5", "debug": "^4.4.3", "zod": "^4.3.6" } }, "sha512-sXAPLtWJcFn/ZPidSYCkelTVYH1uE72pWICRN/ErLTWJLYRhN/cQalLqAg91P681wbNrV8pv/+fiR09Q5uc6iw=="],
 
@@ -125,9 +125,5 @@
     "undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
 
     "zod": ["zod@4.3.6", "", {}, "sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg=="],
-
-    "@bunli/generator/@bunli/core": ["@bunli/core@0.5.5", "", { "dependencies": { "@bunli/utils": "0.3.2", "@standard-schema/spec": "^1.1.0", "@standard-schema/utils": "^0.3.0", "debug": "^4.4.0", "zod": "^4.3.6" } }, "sha512-stHNlsQp4BpfdkcvOQWtR0nHkD8nFRsbyuY51ERq/nSMvnb2QcY65SofR+QyB/MIOSRWIpDgAZO2Qk9615fAHQ=="],
-
-    "bunli/@bunli/core": ["@bunli/core@0.5.5", "", { "dependencies": { "@bunli/utils": "0.3.2", "@standard-schema/spec": "^1.1.0", "@standard-schema/utils": "^0.3.0", "debug": "^4.4.0", "zod": "^4.3.6" } }, "sha512-stHNlsQp4BpfdkcvOQWtR0nHkD8nFRsbyuY51ERq/nSMvnb2QcY65SofR+QyB/MIOSRWIpDgAZO2Qk9615fAHQ=="],
   }
 }
