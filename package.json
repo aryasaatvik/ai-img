@@ -1,6 +1,6 @@
 {
   "name": "ai-img",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "AI Image Generation CLI with bunli + AI SDK",
   "license": "MIT",
