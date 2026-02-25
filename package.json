@@ -30,7 +30,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "bunli": "^0.5.3",
+    "bunli": "0.5.4",
     "typescript": "^5.0.0"
   }
 }
