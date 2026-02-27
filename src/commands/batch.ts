@@ -1,14 +1,22 @@
 import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import { generateImage } from "ai";
-import { getModel, requireApiKey, validateProvider } from "../lib/provider";
+import {
+  getModel,
+  requireApiKey,
+  resolveModel,
+  resolveProviderSelection,
+  validateProvider,
+} from "../lib/provider";
 import { readFile, writeFile, mkdir } from "fs/promises";
+import { dirname } from "path";
 
 interface BatchJob {
   prompt: string;
   n?: number;
   size?: string;
   model?: string;
+  provider?: string;
   out?: string;
   [key: string]: unknown;
 }
@@ -29,98 +37,111 @@ export const batchCommand = defineCommand({
       short: "c",
       description: "Concurrent API calls",
     }),
-    model: option(z.string().default("gpt-image-1.5"), {
+    model: option(z.string().optional(), {
       short: "m",
-      description: "Model ID to use",
+      description: "Model ID to use (default varies by provider)",
     }),
-    provider: option(z.string().default("openai"), {
+    provider: option(z.string().optional(), {
       short: "P",
-      description: "AI provider: openai, google, fal",
+      description: "AI provider: openai, google, fal (auto-detected if omitted)",
     }),
     maxAttempts: option(z.coerce.number().min(1).max(10).default(3), {
       description: "Max retry attempts for failed jobs",
     }),
   },
   handler: async ({ flags }) => {
-    const provider = validateProvider(flags.provider);
-    requireApiKey(provider);
-
     if (!flags.input) {
       console.error("Error: --input is required");
       process.exit(1);
     }
 
-    // Create output directory
-    await mkdir(flags.outDir, { recursive: true });
+    try {
+      const selection = resolveProviderSelection(flags.provider);
+      const provider = selection.provider;
+      requireApiKey(provider);
 
-    // Read JSONL file
-    const content = await readFile(flags.input, "utf-8");
-    const lines = content.trim().split("\n").filter((line) => line.trim());
+      const defaultModelId = resolveModel(provider, flags.model);
 
-    console.log(`Processing ${lines.length} jobs with concurrency ${flags.concurrency}...`);
+      await mkdir(flags.outDir, { recursive: true });
 
-    const model = getModel(provider, flags.model);
-    let successCount = 0;
-    let failCount = 0;
+      const content = await readFile(flags.input, "utf-8");
+      const lines = content.trim().split("\n").filter((line) => line.trim());
 
-    // Process in batches based on concurrency
-    for (let i = 0; i < lines.length; i += flags.concurrency) {
-      const batch = lines.slice(i, i + flags.concurrency);
-      const results = await Promise.allSettled(
-        batch.map(async (line, idx) => {
-          const job: BatchJob = JSON.parse(line);
-          const jobIndex = i + idx;
+      console.log(`Default model: ${defaultModelId}`);
+      console.log(`Processing ${lines.length} jobs with concurrency ${flags.concurrency}...`);
 
-          console.log(`[${jobIndex + 1}/${lines.length}] Generating: ${job.prompt?.substring(0, 50)}...`);
+      let successCount = 0;
+      let failCount = 0;
 
-          let attempts = 0;
-          while (attempts < flags.maxAttempts) {
-            try {
-              const result = await generateImage({
-                model,
-                prompt: job.prompt,
-                n: job.n || 1,
-                size: (job.size as `${number}x${number}`) || "1024x1024",
-              });
+      for (let i = 0; i < lines.length; i += flags.concurrency) {
+        const batch = lines.slice(i, i + flags.concurrency);
+        const results = await Promise.allSettled(
+          batch.map(async (line, idx) => {
+            const job: BatchJob = JSON.parse(line);
+            const jobIndex = i + idx;
+            const jobProvider = job.provider ? validateProvider(job.provider) : provider;
+            requireApiKey(jobProvider);
 
-              // Save images
-              for (let imgIdx = 0; imgIdx < result.images.length; imgIdx++) {
-                const image = result.images[imgIdx];
-                const outFile = job.out || `output-${jobIndex}-${imgIdx}.png`;
-                const filePath = `${flags.outDir}/${outFile}`;
+            const jobModelInput = job.model || flags.model;
+            const jobModelId = resolveModel(jobProvider, jobModelInput);
+            const model = getModel(jobProvider, jobModelId);
 
-                await writeFile(filePath, image.uint8Array);
-                console.log(`  Saved: ${filePath}`);
+            console.log(
+              `[${jobIndex + 1}/${lines.length}] Generating (${jobProvider}/${jobModelId}): ${job.prompt?.substring(0, 50)}...`
+            );
+
+            let attempts = 0;
+            while (attempts < flags.maxAttempts) {
+              try {
+                const result = await generateImage({
+                  model,
+                  prompt: job.prompt,
+                  n: job.n || 1,
+                  size: (job.size as `${number}x${number}`) || "1024x1024",
+                });
+
+                for (let imgIdx = 0; imgIdx < result.images.length; imgIdx++) {
+                  const image = result.images[imgIdx];
+                  const outFile = job.out || `output-${jobIndex}-${imgIdx}.png`;
+                  const filePath = `${flags.outDir}/${outFile}`;
+
+                  await mkdir(dirname(filePath), { recursive: true });
+                  await writeFile(filePath, image.uint8Array);
+                  console.log(`  Saved: ${filePath}`);
+                }
+
+                return { success: true };
+              } catch (error) {
+                attempts++;
+                if (attempts >= flags.maxAttempts) {
+                  throw error;
+                }
+                console.log(`  Retry ${attempts}/${flags.maxAttempts}...`);
+                await new Promise((r) => setTimeout(r, 1000 * attempts));
               }
-
-              return { success: true };
-            } catch (error) {
-              attempts++;
-              if (attempts >= flags.maxAttempts) {
-                throw error;
-              }
-              console.log(`  Retry ${attempts}/${flags.maxAttempts}...`);
-              await new Promise((r) => setTimeout(r, 1000 * attempts));
             }
-          }
-          return { success: true };
-        })
-      );
 
-      // Count results
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value.success) {
-          successCount++;
-        } else {
-          failCount++;
-          const error = result.status === "rejected" ? result.reason : result.value;
-          console.error(`  Failed: ${error instanceof Error ? error.message : error}`);
+            return { success: true };
+          })
+        );
+
+        for (const result of results) {
+          if (result.status === "fulfilled" && result.value.success) {
+            successCount++;
+          } else {
+            failCount++;
+            const error = result.status === "rejected" ? result.reason : result.value;
+            console.error(`  Failed: ${error instanceof Error ? error.message : error}`);
+          }
         }
       }
-    }
 
-    console.log(`\nDone! Success: ${successCount}, Failed: ${failCount}`);
-    if (failCount > 0) {
+      console.log(`\nDone! Success: ${successCount}, Failed: ${failCount}`);
+      if (failCount > 0) {
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error("Error:", error instanceof Error ? error.message : error);
       process.exit(1);
     }
   },

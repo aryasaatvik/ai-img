@@ -1,9 +1,13 @@
 import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import { generateImage } from "ai";
-import { getModel, requireApiKey, validateProvider } from "../lib/provider";
-import { writeFile } from "fs/promises";
-import { mkdir } from "fs/promises";
+import {
+  getModel,
+  requireApiKey,
+  resolveModel,
+  resolveProviderSelection,
+} from "../lib/provider";
+import { mkdir, writeFile } from "fs/promises";
 import { dirname } from "path";
 
 export const generateCommand = defineCommand({
@@ -18,9 +22,9 @@ export const generateCommand = defineCommand({
       short: "m",
       description: "Model ID to use (default varies by provider)",
     }),
-    provider: option(z.string().default("openai"), {
+    provider: option(z.string().optional(), {
       short: "P",
-      description: "AI provider: openai, google, fal",
+      description: "AI provider: openai, google, fal (auto-detected if omitted)",
     }),
     size: option(z.string().default("1024x1024"), {
       short: "s",
@@ -48,47 +52,44 @@ export const generateCommand = defineCommand({
     }),
   },
   handler: async ({ flags }) => {
-    const provider = validateProvider(flags.provider);
-    requireApiKey(provider);
-
     if (!flags.prompt) {
       console.error("Error: --prompt is required");
       process.exit(1);
     }
 
-    // Determine output path
-    const outputPath = flags.outDir
-      ? `${flags.outDir}/${flags.output}`
-      : flags.output;
-
-    // Ensure output directory exists
-    await mkdir(dirname(outputPath), { recursive: true });
-
-    console.log(`Generating ${flags.count} image(s) with ${provider}...`);
-    console.log(`Prompt: ${flags.prompt}`);
-    console.log(`Model: ${flags.model || "default"}`);
-    if (flags.aspectRatio) {
-      console.log(`Aspect Ratio: ${flags.aspectRatio}`);
-    } else {
-      console.log(`Size: ${flags.size}`);
-    }
-
-    // Get model
-    const model = getModel(provider, flags.model);
-
-    // Build provider options
-    const providerOptions: Record<string, any> = {};
-    if (flags.quality) {
-      providerOptions[provider] = { quality: flags.quality };
-    }
-    if (flags.seed) {
-      providerOptions[provider] = {
-        ...providerOptions[provider],
-        seed: flags.seed,
-      };
-    }
-
     try {
+      const selection = resolveProviderSelection(flags.provider);
+      const provider = selection.provider;
+      requireApiKey(provider);
+
+      const modelId = resolveModel(provider, flags.model);
+      const model = getModel(provider, modelId);
+
+      const outputPath = flags.outDir
+        ? `${flags.outDir}/${flags.output}`
+        : flags.output;
+      await mkdir(dirname(outputPath), { recursive: true });
+
+      console.log(`Generating ${flags.count} image(s) with ${provider}...`);
+      console.log(`Prompt: ${flags.prompt}`);
+      console.log(`Model: ${modelId}`);
+      if (flags.aspectRatio) {
+        console.log(`Aspect Ratio: ${flags.aspectRatio}`);
+      } else {
+        console.log(`Size: ${flags.size}`);
+      }
+
+      const providerOptions: Record<string, any> = {};
+      if (flags.quality) {
+        providerOptions[provider] = { quality: flags.quality };
+      }
+      if (flags.seed) {
+        providerOptions[provider] = {
+          ...providerOptions[provider],
+          seed: flags.seed,
+        };
+      }
+
       const result = await generateImage({
         model,
         prompt: flags.prompt,

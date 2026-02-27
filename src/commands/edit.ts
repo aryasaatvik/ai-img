@@ -1,10 +1,13 @@
 import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import { generateImage } from "ai";
-import { getModel, requireApiKey, validateProvider } from "../lib/provider";
-import { readFile } from "fs/promises";
-import { writeFile } from "fs/promises";
-import { mkdir } from "fs/promises";
+import {
+  getModel,
+  requireApiKey,
+  resolveModel,
+  resolveProviderSelection,
+} from "../lib/provider";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { dirname } from "path";
 
 export const editCommand = defineCommand({
@@ -23,12 +26,12 @@ export const editCommand = defineCommand({
       short: "m",
       description: "Mask image path (for partial edits)",
     }),
-    model: option(z.string().default("gpt-image-1"), {
-      description: "Model ID to use",
+    model: option(z.string().optional(), {
+      description: "Model ID to use (default varies by provider)",
     }),
-    provider: option(z.string().default("openai"), {
+    provider: option(z.string().optional(), {
       short: "P",
-      description: "AI provider: openai, google, fal",
+      description: "AI provider: openai, google, fal (auto-detected if omitted)",
     }),
     size: option(z.string().default("1024x1024"), {
       short: "s",
@@ -47,9 +50,6 @@ export const editCommand = defineCommand({
     }),
   },
   handler: async ({ flags }) => {
-    const provider = validateProvider(flags.provider);
-    requireApiKey(provider);
-
     if (!flags.prompt) {
       console.error("Error: --prompt is required");
       process.exit(1);
@@ -60,37 +60,39 @@ export const editCommand = defineCommand({
       process.exit(1);
     }
 
-    // Determine output path
-    const outputPath = flags.outDir
-      ? `${flags.outDir}/${flags.output}`
-      : flags.output;
-
-    await mkdir(dirname(outputPath), { recursive: true });
-
-    console.log(`Editing image(s) with ${provider}...`);
-    console.log(`Input: ${flags.input}`);
-    console.log(`Prompt: ${flags.prompt}`);
-    if (flags.mask) {
-      console.log(`Mask: ${flags.mask}`);
-    }
-
-    // Read input image(s)
-    const inputPaths = flags.input.split(",");
-    const imageBuffers: Buffer[] = [];
-    for (const inputPath of inputPaths) {
-      const buffer = await readFile(inputPath.trim());
-      imageBuffers.push(buffer);
-    }
-
-    // Read mask if provided
-    let maskBuffer: Buffer | undefined;
-    if (flags.mask) {
-      maskBuffer = await readFile(flags.mask);
-    }
-
-    const model = getModel(provider, flags.model);
-
     try {
+      const selection = resolveProviderSelection(flags.provider);
+      const provider = selection.provider;
+      requireApiKey(provider);
+
+      const modelId = resolveModel(provider, flags.model);
+      const model = getModel(provider, modelId);
+
+      const outputPath = flags.outDir
+        ? `${flags.outDir}/${flags.output}`
+        : flags.output;
+      await mkdir(dirname(outputPath), { recursive: true });
+
+      console.log(`Editing image(s) with ${provider}...`);
+      console.log(`Input: ${flags.input}`);
+      console.log(`Prompt: ${flags.prompt}`);
+      console.log(`Model: ${modelId}`);
+      if (flags.mask) {
+        console.log(`Mask: ${flags.mask}`);
+      }
+
+      const inputPaths = flags.input.split(",");
+      const imageBuffers: Buffer[] = [];
+      for (const inputPath of inputPaths) {
+        const buffer = await readFile(inputPath.trim());
+        imageBuffers.push(buffer);
+      }
+
+      let maskBuffer: Buffer | undefined;
+      if (flags.mask) {
+        maskBuffer = await readFile(flags.mask);
+      }
+
       const result = await generateImage({
         model,
         prompt: {
