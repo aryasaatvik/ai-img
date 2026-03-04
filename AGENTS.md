@@ -1,21 +1,27 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-02-25
+**Generated:** 2026-02-27
 
 ## OVERVIEW
-AI Image Generation CLI built with Bun + bunli framework. Supports OpenAI, Google (Gemini), and Fal AI providers for image generation, editing, and batch processing.
+AI Image Generation CLI built with Bun + Bunli. Supports OpenAI, Google (Gemini), and Fal providers for generation, editing, batch jobs, status inspection, and runtime config management.
 
 ## STRUCTURE
 ```
 ai-img/
 ├── src/
-│   ├── index.ts          # CLI entry point
-│   ├── commands/         # Command implementations
-│   │   ├── generate.ts   # Image generation command
-│   │   ├── edit.ts       # Image editing command
-│   │   └── batch.ts      # Batch processing command
+│   ├── index.ts            # CLI entry point
+│   ├── commands/
+│   │   ├── generate.ts     # Image generation
+│   │   ├── edit.ts         # Image editing
+│   │   ├── batch.ts        # Batch processing
+│   │   ├── status.ts       # Provider/config diagnostics
+│   │   └── config.ts       # Config init/show/set/unset
 │   └── lib/
-│       └── provider.ts   # AI provider abstraction
+│       ├── provider.ts     # Provider + credential resolution
+│       └── config.ts       # Runtime config schema/load/resolve helpers
+├── scripts/
+│   └── generate-json-schema.ts  # Zod -> ai-img.schema.json
+├── ai-img.schema.json      # Generated JSON Schema for IDE autocomplete
 ├── package.json
 ├── tsconfig.json
 └── bunli.config.ts
@@ -24,32 +30,42 @@ ai-img/
 ## WHERE TO LOOK
 | Task | Location | Notes |
 |------|----------|-------|
-| Add new command | src/commands/ | Use defineCommand from @bunli/core |
-| Add new provider | src/lib/provider.ts | Implement in getProvider switch |
-| CLI configuration | src/index.ts | Register commands with cli.command() |
-| Build config | bunli.config.ts | bunli CLI config |
+| Add new command | `src/commands/` | Use `defineCommand` + `option` |
+| Add new provider | `src/lib/provider.ts` | Update metadata + factory + priority |
+| Runtime config behavior | `src/lib/config.ts` | Schema, merge precedence, editable keys |
+| Config command UX | `src/commands/config.ts` | `init/show/set/unset` |
+| CLI configuration | `src/index.ts` | Command registration + Bunli plugins |
+| Schema generation | `scripts/generate-json-schema.ts` | Emits `ai-img.schema.json` |
 
 ## CONVENTIONS
-- All commands use `@bunli/core` defineCommand + option APIs
-- Zod for option validation (z.string(), z.coerce.number(), etc.)
-- AI SDK via `ai` package - use generateImage() for all image operations
-- Provider-agnostic via src/lib/provider.ts abstraction
-- Environment variables for API keys: OPENAI_API_KEY, GOOGLE_API_KEY/GEMINI_API_KEY, FAL_API_KEY
+- Commands use Bunli APIs: `defineCommand`, `option`, handler args.
+- Zod schemas validate options and runtime config.
+- AI operations use `generateImage()` from `ai` package.
+- Provider logic is centralized in `provider.ts`.
+- Runtime config is namespaced under `aiImg` and validated strictly.
 
-## ANTI-PATTERNS (THIS PROJECT)
-- Don't hardcode provider-specific logic in commands - use provider.ts abstraction
-- Don't use console.log in production - error handling uses console.error + process.exit(1)
+## CONFIG + CREDENTIALS
+- Config source order:
+  1. `~/.config/ai-img/config.json`
+  2. `.ai-imgrc`
+  3. `.ai-imgrc.json`
+  4. `.ai-imgrc.local.json`
+- Runtime precedence: flags > project config > user config > code defaults.
+- Credential precedence: env vars > `aiImg.secrets.<provider>`.
 
 ## COMMANDS
 ```bash
 # Install
 bun install
 
-# Dev
+# Dev / build / typecheck
 bun run dev
-
-# Build
 bun run build
+bun run typecheck
+
+# Generate JSON Schema for IDE autocomplete
+bun run generate:schema
+bun run generate:schema:check
 
 # Generate image
 ai-img generate -p "a cat" -P openai -o output.png
@@ -59,7 +75,17 @@ ai-img edit -p "make it blue" -i input.png -o edited.png
 
 # Batch process
 ai-img batch -i jobs.jsonl -o output/
+
+# Status + config
+ai-img status
+ai-img config init
+ai-img config show
+ai-img config set aiImg.defaults.provider openai
+
+# Shell completions
+ai-img completions zsh
 ```
 
 ## AGENTS.md LOCATIONS
-- src/ - Source code patterns and command structure
+- `src/` for code architecture and command behavior
+- `scripts/` for schema generation workflow

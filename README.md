@@ -1,27 +1,25 @@
 # ai-img
 
-AI Image Generation CLI with bunli + AI SDK. Supports OpenAI, Google (Gemini), and Fal AI.
+AI image generation CLI built with Bun + Bunli + AI SDK.
 
-## Install CLI
+## Install
 
 ```bash
-# Install globally with Bun (recommended)
 bun add -g ai-img
+```
 
-# Or clone and install locally
+Or local development:
+
+```bash
 git clone https://github.com/aryasaatvik/ai-img
 cd ai-img
 bun install
 bun run build
 ```
 
-## Usage
+## Install as Agent Skill
 
-```bash
-# Generate an image
-ai-img generate -p "a cat sitting on a chair" -o cat.png
-
-Add to your AI agent skills:
+Add to your AI agent:
 
 ```bash
 # For Claude Code
@@ -42,50 +40,166 @@ npx skills add ./skills/ai-image-gen
 
 See [skills/ai-image-gen](./skills/ai-image-gen/) for full skill documentation.
 
-```bash
-bun install
-bun run build
-```
-
-## Usage
+## Commands
 
 ```bash
-# Generate an image
-ai-img generate -p "a cat sitting on a chair" -o cat.png
+# Generate images
+ai-img generate -p "a cat wearing sunglasses" -o cat.png
 
-# Generate with specific provider
-ai-img generate -p "a sunset" -P google -o sunset.png
-
-# Edit an image
+# Edit images
 ai-img edit -p "make it blue" -i input.png -o output.png
 
-# Batch process from JSONL
-ai-img batch -i jobs.jsonl -o output/
+# Batch jobs from JSONL
+ai-img batch -i jobs.jsonl -o ./output
+
+# Provider/config status
+ai-img status
+
+# Force strict preview rendering
+ai-img generate -p "a cat wearing sunglasses" --image-mode on
+
+# Manage runtime config
+ai-img config init
+ai-img config show
+ai-img config set aiImg.defaults.provider openai
+ai-img config set aiImg.preview.mode auto
+ai-img config unset aiImg.defaults.provider
+
+# Generate shell completions
+ai-img completions bash
+ai-img completions zsh
+ai-img completions fish
+```
+
+## Shell Completions
+
+The completions plugin adds a `completions` command for Bash/Zsh/Fish.
+
+Quick install patterns:
+
+```bash
+# Bash (current session)
+source <(ai-img completions bash)
+
+# Zsh (save file)
+mkdir -p ~/.zsh/completions
+ai-img completions zsh > ~/.zsh/completions/_ai-img
+
+# Fish (save file)
+ai-img completions fish > ~/.config/fish/completions/ai-img.fish
 ```
 
 ## Providers
 
-Set your API key via environment variable:
+Supported providers: `openai`, `google`, `fal`.
+
+Credential resolution order is:
+1. Environment variables
+2. Config secrets (`aiImg.secrets.<provider>`)
+
+Environment variable names:
 - OpenAI: `OPENAI_API_KEY`
-- Google: `GEMINI_API_KEY` or `GOOGLE_API_KEY`
+- Google: `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`
 - Fal: `FAL_API_KEY`
 
-## Options
+## Runtime Config
 
-### generate
-- `-p, --prompt` - Text prompt (required)
-- `-P, --provider` - AI provider (openai, google, fal)
-- `-m, --model` - Model ID
-- `-s, --size` - Image size (e.g., 1024x1024)
-- `-c, --count` - Number of images
-- `-o, --output` - Output file path
+Config is loaded from these sources (deep merged, later overrides earlier):
+1. `~/.config/ai-img/config.json`
+2. `.ai-imgrc`
+3. `.ai-imgrc.json`
+4. `.ai-imgrc.local.json`
 
-### edit
-- `-p, --prompt` - Edit prompt (required)
-- `-i, --input` - Input image path (required)
-- `-m, --mask` - Mask image for partial edits
+Runtime precedence is:
+1. CLI flags
+2. Project config
+3. User config
+4. Built-in defaults
 
-### batch
-- `-i, --input` - JSONL file with one job per line
-- `-o, --outDir` - Output directory
-- `-c, --concurrency` - Concurrent API calls
+For preview mode specifically, precedence is:
+1. `--image-mode` flag
+2. `aiImg.preview.mode` config
+3. default `auto`
+
+### Config Schema
+
+```json
+{
+  "aiImg": {
+    "schemaVersion": 1,
+    "defaults": {
+      "provider": "openai",
+      "model": "gpt-image-1.5",
+      "size": "1024x1024",
+      "output": "output.png",
+      "outDir": "./output"
+    },
+    "generate": {
+      "quality": "auto",
+      "count": 1
+    },
+    "edit": {
+      "count": 1
+    },
+    "batch": {
+      "concurrency": 5,
+      "maxAttempts": 3
+    },
+    "preview": {
+      "mode": "auto",
+      "protocol": "auto",
+      "width": 32
+    },
+    "secrets": {
+      "openai": "...",
+      "google": "...",
+      "fal": "..."
+    }
+  }
+}
+```
+
+### Terminal Preview Notes
+
+- Preview mode values: `off`, `auto`, `on`
+- `auto` is best-effort and non-fatal when rendering is unavailable
+- `on` is strict and fails when preview cannot render
+- Default thumbnail width is `32` columns; only width is set so aspect ratio is preserved
+- Current protocol support is Kitty-compatible terminals (for example Kitty, Ghostty)
+
+## IDE Autocomplete via JSON Schema
+
+The config schema is generated from Zod and published as `ai-img.schema.json`.
+
+Generate/update it:
+
+```bash
+bun run generate:schema
+```
+
+Check for drift:
+
+```bash
+bun run generate:schema:check
+```
+
+Use it in your config file:
+
+```json
+{
+  "$schema": "./ai-img.schema.json",
+  "aiImg": {
+    "schemaVersion": 1
+  }
+}
+```
+
+## Scripts
+
+```bash
+bun run dev
+bun run build
+bun run typecheck
+bun run generate:schema
+bun run generate:schema:check
+```
