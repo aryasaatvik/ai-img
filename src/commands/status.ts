@@ -1,12 +1,15 @@
 import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import {
+  describeKeySource,
   detectProviderEnv,
   getDefaultModel,
   resolveModel,
   resolveProviderSelection,
   validateProvider,
 } from "../lib/provider";
+import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
+import { getPreviewCapability, resolvePreviewOptions } from "../lib/preview";
 
 export const statusCommand = defineCommand({
   name: "status",
@@ -17,28 +20,53 @@ export const statusCommand = defineCommand({
       description: "Provider to inspect (openai, google, fal)",
     }),
   },
-  handler: async ({ flags }) => {
+  handler: async ({ flags, cwd }) => {
     try {
-      const detections = detectProviderEnv();
+      const loadedConfig = await loadAiImgConfig({ cwd });
+      const runtimeConfig = resolveRuntimeConfig(loadedConfig.config);
+      const previewOptions = resolvePreviewOptions(
+        runtimeConfig,
+        flags as unknown as Record<string, unknown>
+      );
+      const previewCapability = getPreviewCapability();
+      const detections = detectProviderEnv(runtimeConfig.secrets);
 
       console.log("Provider environment:");
       for (const detection of detections) {
         const envState = detection.detected
-          ? `detected via ${detection.matchedEnvVar}`
+          ? `configured via ${detection.matchedSource}`
           : "not detected";
         console.log(
           `- ${detection.provider}: ${envState}; default model: ${getDefaultModel(detection.provider)}`
         );
       }
 
+      console.log("\nConfig sources:");
+      for (const source of loadedConfig.sources) {
+        console.log(`- ${source.path}: ${source.loaded ? "loaded" : "not found"}`);
+      }
+
+      const previewState = previewCapability.supported
+        ? `${previewCapability.protocol} supported`
+        : `unsupported (${previewCapability.reason ?? "unknown"})`;
+      console.log("\nPreview:");
+      console.log(`- mode: ${previewOptions.mode}`);
+      console.log(`- protocol: ${previewOptions.protocol}`);
+      console.log(`- width: ${previewOptions.width ?? "default"}`);
+      console.log(`- capability: ${previewState}`);
+
       if (flags.provider) {
         const provider = validateProvider(flags.provider);
         const matched = detections.find((detection) => detection.provider === provider);
         const state = matched?.detected
-          ? `configured (${matched.matchedEnvVar})`
+          ? `configured (${matched.matchedSource})`
           : "not configured";
         console.log(`\nSelection: ${provider} (explicit --provider, ${state})`);
-        console.log(`Resolved default model: ${resolveModel(provider)}`);
+        console.log(
+          `Resolved default model: ${resolveModel(provider, runtimeConfig.defaults.model)}`
+        );
+        const keySource = describeKeySource(provider, runtimeConfig.secrets);
+        console.log(`Key source: ${keySource}`);
         return;
       }
 
@@ -48,12 +76,16 @@ export const statusCommand = defineCommand({
         return;
       }
 
-      const selection = resolveProviderSelection();
+      const selection = resolveProviderSelection(runtimeConfig.defaults.provider, runtimeConfig.secrets);
       console.log(`\nSelection: ${selection.provider} (${selection.reason})`);
-      console.log(`Resolved default model: ${resolveModel(selection.provider)}`);
+      console.log(
+        `Resolved default model: ${resolveModel(selection.provider, runtimeConfig.defaults.model)}`
+      );
     } catch (error) {
       console.error("Error:", error instanceof Error ? error.message : error);
       process.exit(1);
     }
   },
 });
+
+export default statusCommand;

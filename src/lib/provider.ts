@@ -4,6 +4,7 @@ import { fal } from "@ai-sdk/fal";
 import type { ImageModel } from "ai";
 
 export type ProviderName = "openai" | "google" | "fal";
+export type ProviderSecretMap = Partial<Record<ProviderName, string>>;
 
 export interface ProviderConfig {
   name: ProviderName;
@@ -45,7 +46,9 @@ const PROVIDER_FACTORIES = {
 export interface ProviderDetection {
   provider: ProviderName;
   detected: boolean;
+  sourceType?: "env" | "config";
   matchedEnvVar?: string;
+  matchedSource?: string;
 }
 
 export interface ProviderSelection {
@@ -58,18 +61,61 @@ function getConfiguredProviders(): ProviderName[] {
   return Object.keys(PROVIDER_METADATA) as ProviderName[];
 }
 
-function getApiKeyMatch(provider: ProviderName): {
+function getEnvVarName(provider: ProviderName): string {
+  return PROVIDER_METADATA[provider].envVars.join(", ");
+}
+
+function getApiKeyHint(provider: ProviderName): string {
+  return `${getEnvVarName(provider)} or config.aiImg.secrets.${provider}`;
+}
+
+function getApiKeyMatch(
+  provider: ProviderName,
+  secrets?: ProviderSecretMap
+): {
   key?: string;
+  sourceType?: "env" | "config";
   envVar?: string;
 } {
   const envVars = PROVIDER_METADATA[provider].envVars;
   for (const envVar of envVars) {
     const key = process.env[envVar];
     if (typeof key === "string" && key.length > 0) {
-      return { key, envVar };
+      return { key, sourceType: "env", envVar };
     }
   }
+
+  const configKey = secrets?.[provider];
+  if (typeof configKey === "string" && configKey.length > 0) {
+    return { key: configKey, sourceType: "config" };
+  }
+
   return {};
+}
+
+export function getApiKeySource(
+  provider: ProviderName,
+  secrets?: ProviderSecretMap
+): {
+  sourceType?: "env" | "config";
+  envVar?: string;
+} {
+  const match = getApiKeyMatch(provider, secrets);
+  return {
+    sourceType: match.sourceType,
+    envVar: match.envVar,
+  };
+}
+
+export function describeKeySource(provider: ProviderName, secrets?: ProviderSecretMap): string {
+  const source = getApiKeySource(provider, secrets);
+  if (source.sourceType === "env") {
+    return source.envVar ?? "environment variable";
+  }
+  if (source.sourceType === "config") {
+    return `config.aiImg.secrets.${provider}`;
+  }
+  return "unconfigured";
 }
 
 export function getProvider(name: ProviderName) {
@@ -90,21 +136,18 @@ export function getModel(provider: ProviderName, model?: string): ImageModel {
   return providerSdk.image(modelId) as ImageModel;
 }
 
-export function getApiKey(provider: ProviderName): string | undefined {
-  return getApiKeyMatch(provider).key;
+export function getApiKey(
+  provider: ProviderName,
+  secrets?: ProviderSecretMap
+): string | undefined {
+  return getApiKeyMatch(provider, secrets).key;
 }
 
-export function requireApiKey(provider: ProviderName): void {
-  const key = getApiKey(provider);
+export function requireApiKey(provider: ProviderName, secrets?: ProviderSecretMap): void {
+  const key = getApiKey(provider, secrets);
   if (!key) {
-    throw new Error(
-      `Missing API key for ${provider}. Set ${getEnvVarName(provider)} environment variable.`
-    );
+    throw new Error(`Missing API key for ${provider}. Configure ${getApiKeyHint(provider)}.`);
   }
-}
-
-function getEnvVarName(provider: ProviderName): string {
-  return PROVIDER_METADATA[provider].envVars.join(", ");
 }
 
 export function validateProvider(name: string): ProviderName {
@@ -115,13 +158,23 @@ export function validateProvider(name: string): ProviderName {
   return name as ProviderName;
 }
 
-export function detectProviderEnv(): ProviderDetection[] {
+export function detectProviderEnv(secrets?: ProviderSecretMap): ProviderDetection[] {
   return PROVIDER_PRIORITY.map((provider) => {
-    const match = getApiKeyMatch(provider);
+    const match = getApiKeyMatch(provider, secrets);
+    const sourceType = match.sourceType;
+    const matchedSource =
+      sourceType === "env"
+        ? match.envVar
+        : sourceType === "config"
+          ? `config.aiImg.secrets.${provider}`
+          : undefined;
+
     return {
       provider,
       detected: Boolean(match.key),
+      sourceType,
       matchedEnvVar: match.envVar,
+      matchedSource,
     };
   });
 }
@@ -130,9 +183,7 @@ export function formatDetectedProviders(detections: ProviderDetection[]): string
   const detected = detections
     .filter((detection) => detection.detected)
     .map((detection) =>
-      detection.matchedEnvVar
-        ? `${detection.provider} (${detection.matchedEnvVar})`
-        : detection.provider
+      detection.matchedSource ? `${detection.provider} (${detection.matchedSource})` : detection.provider
     );
 
   if (detected.length === 0) {
@@ -142,8 +193,11 @@ export function formatDetectedProviders(detections: ProviderDetection[]): string
   return detected.join(", ");
 }
 
-export function resolveProviderSelection(requestedProvider?: string): ProviderSelection {
-  const detections = detectProviderEnv();
+export function resolveProviderSelection(
+  requestedProvider?: string,
+  secrets?: ProviderSecretMap
+): ProviderSelection {
+  const detections = detectProviderEnv(secrets);
 
   if (requestedProvider) {
     const provider = validateProvider(requestedProvider);
@@ -156,17 +210,17 @@ export function resolveProviderSelection(requestedProvider?: string): ProviderSe
 
   const detected = detections.filter((entry) => entry.detected);
   if (detected.length === 0) {
-    const allEnvVars = getConfiguredProviders()
-      .map((provider) => PROVIDER_METADATA[provider].envVars.join(", "))
+    const allHints = getConfiguredProviders()
+      .map((provider) => getApiKeyHint(provider))
       .join("; ");
     throw new Error(
-      `No provider detected in environment. Set one of: ${allEnvVars}, or pass --provider with a configured API key.`
+      `No provider detected. Configure one of: ${allHints}, or pass --provider with configured credentials.`
     );
   }
 
   if (detected.length === 1) {
     const selected = detected[0];
-    const matchedBy = selected.matchedEnvVar ? ` from ${selected.matchedEnvVar}` : "";
+    const matchedBy = selected.matchedSource ? ` from ${selected.matchedSource}` : "";
     return {
       provider: selected.provider,
       detections,
@@ -179,5 +233,19 @@ export function resolveProviderSelection(requestedProvider?: string): ProviderSe
     provider: selected.provider,
     detections,
     reason: `auto-selected by priority (${PROVIDER_PRIORITY.join(" > ")})`,
+  };
+}
+
+export function resolveProviderConfig(
+  requestedProvider: string | undefined,
+  requestedModel: string | undefined,
+  secrets?: ProviderSecretMap
+): ProviderConfig {
+  const selection = resolveProviderSelection(requestedProvider, secrets);
+  const provider = selection.provider;
+  requireApiKey(provider, secrets);
+  return {
+    name: provider,
+    model: resolveModel(provider, requestedModel),
   };
 }
