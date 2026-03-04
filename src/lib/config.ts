@@ -90,6 +90,21 @@ type AiImgConfigFile = z.infer<typeof AiImgConfigFileSchema>;
 
 export type ProviderSecretMap = Partial<Record<ProviderName, string>>;
 
+type PrimitiveLeaf = string | number | boolean | bigint | null | undefined;
+type DotLeafPaths<T, Prefix extends string = ""> = T extends PrimitiveLeaf
+  ? Prefix
+  : T extends readonly unknown[]
+    ? Prefix
+    : T extends Record<string, unknown>
+      ? {
+          [K in keyof T & string]: DotLeafPaths<
+            NonNullable<T[K]>,
+            Prefix extends "" ? K : `${Prefix}.${K}`
+          >;
+        }[keyof T & string]
+      : Prefix;
+type EditableConfigKey = Extract<DotLeafPaths<AiImgConfigFile>, `aiImg.${string}`>;
+
 export interface ConfigSource {
   path: string;
   kind: ConfigTarget;
@@ -159,49 +174,95 @@ export const DEFAULT_RUNTIME_CONFIG: ResolvedAiImgRuntimeConfig = {
   secrets: {},
 };
 
-export const EDITABLE_CONFIG_KEYS = [
-  "aiImg.schemaVersion",
-  "aiImg.defaults.provider",
-  "aiImg.defaults.model",
-  "aiImg.defaults.size",
-  "aiImg.defaults.output",
-  "aiImg.defaults.outDir",
-  "aiImg.generate.quality",
-  "aiImg.generate.count",
-  "aiImg.edit.count",
-  "aiImg.batch.concurrency",
-  "aiImg.batch.maxAttempts",
-  "aiImg.preview.mode",
-  "aiImg.preview.protocol",
-  "aiImg.preview.width",
-  "aiImg.secrets.openai",
-  "aiImg.secrets.google",
-  "aiImg.secrets.fal",
-] as const;
+function unwrapSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
+  let current = schema;
+  while (
+    current instanceof z.ZodOptional ||
+    current instanceof z.ZodNullable ||
+    current instanceof z.ZodDefault ||
+    current instanceof z.ZodCatch ||
+    current instanceof z.ZodReadonly
+  ) {
+    current = (current as unknown as { unwrap: () => z.ZodTypeAny }).unwrap();
+  }
+  return current;
+}
 
-type EditableConfigKey = (typeof EDITABLE_CONFIG_KEYS)[number];
+function collectLeafSchemas(
+  schema: z.ZodTypeAny,
+  prefix: string
+): Array<[EditableConfigKey, z.ZodTypeAny]> {
+  const current = unwrapSchema(schema);
+  if (current instanceof z.ZodObject) {
+    const entries = Object.entries(current.shape) as Array<[string, z.ZodTypeAny]>;
+    return entries.flatMap(([key, value]) =>
+      collectLeafSchemas(value, `${prefix}.${key}`)
+    );
+  }
+  return [[prefix as EditableConfigKey, current]];
+}
 
-const EDITABLE_KEY_SCHEMAS: Record<EditableConfigKey, z.ZodTypeAny> = {
-  "aiImg.schemaVersion": z.coerce.number().refine((value) => value === 1, {
-    message: "schemaVersion must be 1",
-  }),
-  "aiImg.defaults.provider": ProviderSchema,
-  "aiImg.defaults.model": z.string().min(1),
-  "aiImg.defaults.size": z.string().regex(/^\d+x\d+$/, "Expected WIDTHxHEIGHT"),
-  "aiImg.defaults.output": z.string().min(1),
-  "aiImg.defaults.outDir": z.string().min(1),
-  "aiImg.generate.quality": QualitySchema,
-  "aiImg.generate.count": z.coerce.number().int().min(1).max(10),
-  "aiImg.edit.count": z.coerce.number().int().min(1).max(10),
-  "aiImg.batch.concurrency": z.coerce.number().int().min(1).max(25),
-  "aiImg.batch.maxAttempts": z.coerce.number().int().min(1).max(10),
-  "aiImg.preview.mode": z.enum(["off", "auto", "on"]),
-  "aiImg.preview.protocol": z.enum(["auto", "kitty"]),
-  "aiImg.preview.width": z.coerce.number().int().min(1),
-  "aiImg.secrets.openai": z.string().min(1),
-  "aiImg.secrets.google": z.string().min(1),
-  "aiImg.secrets.fal": z.string().min(1),
-};
+function buildLiteralParser(
+  key: EditableConfigKey,
+  schema: z.ZodLiteral
+): z.ZodTypeAny {
+  const values = [...schema.values];
+  const literal = values[0];
+
+  if (typeof literal === "number") {
+    return z.coerce.number().pipe(schema as z.ZodLiteral<number>);
+  }
+  if (typeof literal === "boolean") {
+    return z.coerce.boolean().pipe(schema as z.ZodLiteral<boolean>);
+  }
+  if (typeof literal === "string") {
+    return schema;
+  }
+  throw new Error(
+    `Unsupported literal schema for editable key ${key}: ${typeof literal}`
+  );
+}
+
+function buildEditableValueSchema(
+  key: EditableConfigKey,
+  schema: z.ZodTypeAny
+): z.ZodTypeAny {
+  if (schema instanceof z.ZodString || schema instanceof z.ZodEnum) {
+    return schema;
+  }
+  if (schema instanceof z.ZodNumber) {
+    return z.coerce.number().pipe(schema);
+  }
+  if (schema instanceof z.ZodBoolean) {
+    return z.coerce.boolean().pipe(schema);
+  }
+  if (schema instanceof z.ZodLiteral) {
+    return buildLiteralParser(key, schema);
+  }
+  throw new Error(
+    `Unsupported editable schema type for key ${key}: ${schema.constructor.name}`
+  );
+}
+
+const editableSchemaEntries = collectLeafSchemas(AiImgConfigFileSchema.shape.aiImg, "aiImg");
+const schemaVersionEntry = editableSchemaEntries.find(
+  ([key]) => key === "aiImg.schemaVersion"
+);
+const nonSchemaVersionEntries = editableSchemaEntries.filter(
+  ([key]) => key !== "aiImg.schemaVersion"
+);
+const orderedEditableEntries = schemaVersionEntry
+  ? [schemaVersionEntry, ...nonSchemaVersionEntries]
+  : nonSchemaVersionEntries;
+
+export const EDITABLE_CONFIG_KEYS = Object.freeze(
+  orderedEditableEntries.map(([key]) => key)
+) as readonly EditableConfigKey[];
+
+const EDITABLE_KEY_SET = new Set<EditableConfigKey>(EDITABLE_CONFIG_KEYS);
+const EDITABLE_KEY_SCHEMAS = new Map<EditableConfigKey, z.ZodTypeAny>(
+  orderedEditableEntries.map(([key, schema]) => [key, buildEditableValueSchema(key, schema)])
+);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -365,14 +426,17 @@ export function getProviderSecrets(
 }
 
 export function isEditableConfigKey(key: string): key is EditableConfigKey {
-  return EDITABLE_CONFIG_KEYS.includes(key as EditableConfigKey);
+  return EDITABLE_KEY_SET.has(key as EditableConfigKey);
 }
 
 export function parseEditableConfigValue(key: string, rawValue: string): unknown {
   if (!isEditableConfigKey(key)) {
     throw new Error(`Unsupported config key: ${key}`);
   }
-  const schema = EDITABLE_KEY_SCHEMAS[key];
+  const schema = EDITABLE_KEY_SCHEMAS.get(key);
+  if (!schema) {
+    throw new Error(`Unsupported config key: ${key}`);
+  }
   const result = schema.safeParse(rawValue);
   if (!result.success) {
     throw new Error(`Invalid value for ${key}: ${formatIssue(result.error)}`);

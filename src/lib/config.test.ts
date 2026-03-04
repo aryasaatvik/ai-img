@@ -2,10 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { basename, join } from "path";
+import { z } from "zod";
 import {
+  AiImgConfigSchema,
+  EDITABLE_CONFIG_KEYS,
   createInitialConfig,
   getDefaultConfigSources,
   getUserConfigPath,
+  isEditableConfigKey,
   loadAiImgConfig,
   parseEditableConfigValue,
   redactSecrets,
@@ -22,6 +26,30 @@ async function makeTempDir(prefix: string): Promise<string> {
 
 async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
+}
+
+function unwrapSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
+  let current = schema;
+  while (
+    current instanceof z.ZodOptional ||
+    current instanceof z.ZodNullable ||
+    current instanceof z.ZodDefault ||
+    current instanceof z.ZodCatch ||
+    current instanceof z.ZodReadonly
+  ) {
+    current = (current as unknown as { unwrap: () => z.ZodTypeAny }).unwrap();
+  }
+  return current;
+}
+
+function collectLeafPaths(schema: z.ZodTypeAny, prefix = ""): string[] {
+  const current = unwrapSchema(schema);
+  if (current instanceof z.ZodObject) {
+    return Object.entries(current.shape).flatMap(([key, value]) =>
+      collectLeafPaths(value, prefix ? `${prefix}.${key}` : key)
+    );
+  }
+  return [prefix];
 }
 
 describe("config runtime resolution", () => {
@@ -124,14 +152,27 @@ describe("config validation + mutators", () => {
   });
 
   test("editable value parsing validates and coerces", () => {
+    const schemaLeafPaths = collectLeafPaths(AiImgConfigSchema)
+      .filter((path) => path.startsWith("aiImg."))
+      .map((path) => path as (typeof EDITABLE_CONFIG_KEYS)[number]);
+
+    expect(new Set(EDITABLE_CONFIG_KEYS)).toEqual(
+      new Set(schemaLeafPaths)
+    );
+    expect(EDITABLE_CONFIG_KEYS[0]).toBe("aiImg.schemaVersion");
+    expect(isEditableConfigKey("aiImg.defaults")).toBe(false);
+    expect(isEditableConfigKey("aiImg.defaults.output")).toBe(true);
+
     expect(parseEditableConfigValue("aiImg.batch.concurrency", "3")).toBe(3);
     expect(parseEditableConfigValue("aiImg.preview.mode", "on")).toBe("on");
+    expect(parseEditableConfigValue("aiImg.schemaVersion", "1")).toBe(1);
     expect(() => parseEditableConfigValue("aiImg.batch.concurrency", "0")).toThrow(
       "Invalid value"
     );
     expect(() => parseEditableConfigValue("aiImg.defaults.size", "1024")).toThrow(
       "Invalid value"
     );
+    expect(() => parseEditableConfigValue("aiImg.schemaVersion", "2")).toThrow("Invalid value");
   });
 
   test("set/unset update nested paths and prune empty objects", () => {
