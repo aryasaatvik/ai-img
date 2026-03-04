@@ -1,0 +1,504 @@
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { homedir } from "os";
+import { dirname, resolve } from "path";
+import { z } from "zod";
+import type { ProviderName } from "./provider";
+
+export type ConfigTarget = "user" | "project";
+
+export const PROVIDERS = ["openai", "google", "fal"] as const;
+export const QUALITY_LEVELS = ["low", "medium", "high", "auto"] as const;
+
+const ProviderSchema = z.enum(PROVIDERS);
+const QualitySchema = z.enum(QUALITY_LEVELS);
+
+const AiImgDefaultsSchema = z
+  .object({
+    provider: ProviderSchema.optional(),
+    model: z.string().min(1).optional(),
+    size: z.string().regex(/^\d+x\d+$/, "Expected WIDTHxHEIGHT").optional(),
+    output: z.string().min(1).optional(),
+    outDir: z.string().min(1).optional(),
+  })
+  .strict();
+
+const AiImgGenerateSchema = z
+  .object({
+    quality: QualitySchema.optional(),
+    count: z.number().int().min(1).max(10).optional(),
+  })
+  .strict();
+
+const AiImgEditSchema = z
+  .object({
+    count: z.number().int().min(1).max(10).optional(),
+  })
+  .strict();
+
+const AiImgBatchSchema = z
+  .object({
+    concurrency: z.number().int().min(1).max(25).optional(),
+    maxAttempts: z.number().int().min(1).max(10).optional(),
+  })
+  .strict();
+
+const AiImgPreviewSchema = z
+  .object({
+    mode: z.enum(["off", "auto", "on"]).optional(),
+    protocol: z.enum(["auto", "kitty"]).optional(),
+    width: z.number().int().min(1).optional(),
+  })
+  .strict();
+
+const AiImgSecretsSchema = z
+  .object({
+    openai: z.string().min(1).optional(),
+    google: z.string().min(1).optional(),
+    fal: z.string().min(1).optional(),
+  })
+  .strict();
+
+const AiImgConfigBodySchema = z
+  .object({
+    defaults: AiImgDefaultsSchema.optional(),
+    generate: AiImgGenerateSchema.optional(),
+    edit: AiImgEditSchema.optional(),
+    batch: AiImgBatchSchema.optional(),
+    preview: AiImgPreviewSchema.optional(),
+    secrets: AiImgSecretsSchema.optional(),
+  })
+  .strict();
+
+const AiImgConfigFileSchema = z
+  .object({
+    aiImg: AiImgConfigBodySchema.extend({
+      schemaVersion: z.literal(1).optional(),
+    }),
+  })
+  .strict();
+
+export const AiImgConfigSchema = z
+  .object({
+    aiImg: AiImgConfigBodySchema.extend({
+      schemaVersion: z.literal(1),
+    }),
+  })
+  .strict();
+
+export type AiImgConfig = z.infer<typeof AiImgConfigSchema>;
+type AiImgConfigFile = z.infer<typeof AiImgConfigFileSchema>;
+
+export type ProviderSecretMap = Partial<Record<ProviderName, string>>;
+
+export interface ConfigSource {
+  path: string;
+  kind: ConfigTarget;
+}
+
+export interface ConfigSourceResult extends ConfigSource {
+  loaded: boolean;
+}
+
+export interface LoadedAiImgConfig {
+  config: AiImgConfig | null;
+  sources: ConfigSourceResult[];
+}
+
+export interface LoadAiImgConfigOptions {
+  cwd?: string;
+  sources?: ConfigSource[];
+}
+
+export interface ResolvedAiImgRuntimeConfig {
+  defaults: {
+    provider?: ProviderName;
+    model?: string;
+    size: string;
+    output: string;
+    outDir?: string;
+  };
+  generate: {
+    count: number;
+    quality?: (typeof QUALITY_LEVELS)[number];
+  };
+  edit: {
+    count: number;
+  };
+  batch: {
+    concurrency: number;
+    maxAttempts: number;
+  };
+  preview: {
+    mode: "off" | "auto" | "on";
+    protocol: "auto" | "kitty";
+    width?: number;
+  };
+  secrets: ProviderSecretMap;
+}
+
+export const DEFAULT_RUNTIME_CONFIG: ResolvedAiImgRuntimeConfig = {
+  defaults: {
+    size: "1024x1024",
+    output: "output.png",
+  },
+  generate: {
+    count: 1,
+  },
+  edit: {
+    count: 1,
+  },
+  batch: {
+    concurrency: 5,
+    maxAttempts: 3,
+  },
+  preview: {
+    mode: "auto",
+    protocol: "auto",
+    width: 32,
+  },
+  secrets: {},
+};
+
+export const EDITABLE_CONFIG_KEYS = [
+  "aiImg.schemaVersion",
+  "aiImg.defaults.provider",
+  "aiImg.defaults.model",
+  "aiImg.defaults.size",
+  "aiImg.defaults.output",
+  "aiImg.defaults.outDir",
+  "aiImg.generate.quality",
+  "aiImg.generate.count",
+  "aiImg.edit.count",
+  "aiImg.batch.concurrency",
+  "aiImg.batch.maxAttempts",
+  "aiImg.preview.mode",
+  "aiImg.preview.protocol",
+  "aiImg.preview.width",
+  "aiImg.secrets.openai",
+  "aiImg.secrets.google",
+  "aiImg.secrets.fal",
+] as const;
+
+type EditableConfigKey = (typeof EDITABLE_CONFIG_KEYS)[number];
+
+const EDITABLE_KEY_SCHEMAS: Record<EditableConfigKey, z.ZodTypeAny> = {
+  "aiImg.schemaVersion": z.coerce.number().refine((value) => value === 1, {
+    message: "schemaVersion must be 1",
+  }),
+  "aiImg.defaults.provider": ProviderSchema,
+  "aiImg.defaults.model": z.string().min(1),
+  "aiImg.defaults.size": z.string().regex(/^\d+x\d+$/, "Expected WIDTHxHEIGHT"),
+  "aiImg.defaults.output": z.string().min(1),
+  "aiImg.defaults.outDir": z.string().min(1),
+  "aiImg.generate.quality": QualitySchema,
+  "aiImg.generate.count": z.coerce.number().int().min(1).max(10),
+  "aiImg.edit.count": z.coerce.number().int().min(1).max(10),
+  "aiImg.batch.concurrency": z.coerce.number().int().min(1).max(25),
+  "aiImg.batch.maxAttempts": z.coerce.number().int().min(1).max(10),
+  "aiImg.preview.mode": z.enum(["off", "auto", "on"]),
+  "aiImg.preview.protocol": z.enum(["auto", "kitty"]),
+  "aiImg.preview.width": z.coerce.number().int().min(1),
+  "aiImg.secrets.openai": z.string().min(1),
+  "aiImg.secrets.google": z.string().min(1),
+  "aiImg.secrets.fal": z.string().min(1),
+};
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function deepMerge<T extends Record<string, unknown>>(
+  base: T,
+  incoming: Record<string, unknown>
+): T {
+  const output: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(incoming)) {
+    const existing = output[key];
+    if (isPlainObject(existing) && isPlainObject(value)) {
+      output[key] = deepMerge(existing, value);
+      continue;
+    }
+    output[key] = value;
+  }
+  return output as T;
+}
+
+function formatIssue(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) {
+    return "unknown validation error";
+  }
+  const path = issue.path.length > 0 ? issue.path.join(".") : "(root)";
+  return `${path}: ${issue.message}`;
+}
+
+function getProjectConfigCandidates(cwd: string): ConfigSource[] {
+  return [
+    { path: resolve(cwd, ".ai-imgrc"), kind: "project" },
+    { path: resolve(cwd, ".ai-imgrc.json"), kind: "project" },
+    { path: resolve(cwd, ".ai-imgrc.local.json"), kind: "project" },
+  ];
+}
+
+export function getUserConfigPath(): string {
+  return resolve(homedir(), ".config/ai-img/config.json");
+}
+
+export function getDefaultConfigSources(cwd = process.cwd()): ConfigSource[] {
+  return [{ path: getUserConfigPath(), kind: "user" }, ...getProjectConfigCandidates(cwd)];
+}
+
+export function getDefaultProjectWritePath(cwd = process.cwd()): string {
+  return resolve(cwd, ".ai-imgrc.json");
+}
+
+export function resolveConfigWritePath(options: {
+  target: ConfigTarget;
+  cwd?: string;
+  file?: string;
+}): string {
+  const cwd = options.cwd ?? process.cwd();
+  if (options.file) {
+    return resolve(cwd, options.file);
+  }
+  return options.target === "user" ? getUserConfigPath() : getDefaultProjectWritePath(cwd);
+}
+
+async function readConfigFragment(path: string): Promise<AiImgConfigFile | null> {
+  try {
+    const content = await readFile(path, "utf-8");
+    const parsed = JSON.parse(content) as unknown;
+    const result = AiImgConfigFileSchema.safeParse(parsed);
+    if (!result.success) {
+      throw new Error(`Invalid config file at ${path}: ${formatIssue(result.error)}`);
+    }
+    return result.data;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "ENOENT"
+    ) {
+      return null;
+    }
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON in config file at ${path}: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+export async function loadAiImgConfig(
+  options: LoadAiImgConfigOptions = {}
+): Promise<LoadedAiImgConfig> {
+  const cwd = options.cwd ?? process.cwd();
+  const sources = options.sources ?? getDefaultConfigSources(cwd);
+  const status: ConfigSourceResult[] = [];
+  let merged: Record<string, unknown> = {};
+
+  for (const source of sources) {
+    const fragment = await readConfigFragment(source.path);
+    status.push({ ...source, loaded: Boolean(fragment) });
+    if (fragment) {
+      merged = deepMerge(merged, fragment as unknown as Record<string, unknown>);
+    }
+  }
+
+  if (status.every((source) => !source.loaded)) {
+    return { config: null, sources: status };
+  }
+
+  const parsed = AiImgConfigSchema.safeParse(merged);
+  if (!parsed.success) {
+    throw new Error(`Invalid merged ai-img config: ${formatIssue(parsed.error)}`);
+  }
+
+  return { config: parsed.data, sources: status };
+}
+
+export function resolveRuntimeConfig(
+  config: AiImgConfig | null | undefined
+): ResolvedAiImgRuntimeConfig {
+  if (!config) {
+    return DEFAULT_RUNTIME_CONFIG;
+  }
+
+  const aiImg = config.aiImg;
+
+  return {
+    defaults: {
+      provider: aiImg.defaults?.provider,
+      model: aiImg.defaults?.model,
+      size: aiImg.defaults?.size ?? DEFAULT_RUNTIME_CONFIG.defaults.size,
+      output: aiImg.defaults?.output ?? DEFAULT_RUNTIME_CONFIG.defaults.output,
+      outDir: aiImg.defaults?.outDir,
+    },
+    generate: {
+      count: aiImg.generate?.count ?? DEFAULT_RUNTIME_CONFIG.generate.count,
+      quality: aiImg.generate?.quality,
+    },
+    edit: {
+      count: aiImg.edit?.count ?? DEFAULT_RUNTIME_CONFIG.edit.count,
+    },
+    batch: {
+      concurrency: aiImg.batch?.concurrency ?? DEFAULT_RUNTIME_CONFIG.batch.concurrency,
+      maxAttempts: aiImg.batch?.maxAttempts ?? DEFAULT_RUNTIME_CONFIG.batch.maxAttempts,
+    },
+    preview: {
+      mode: aiImg.preview?.mode ?? DEFAULT_RUNTIME_CONFIG.preview.mode,
+      protocol: aiImg.preview?.protocol ?? DEFAULT_RUNTIME_CONFIG.preview.protocol,
+      width: aiImg.preview?.width ?? DEFAULT_RUNTIME_CONFIG.preview.width,
+    },
+    secrets: {
+      openai: aiImg.secrets?.openai,
+      google: aiImg.secrets?.google,
+      fal: aiImg.secrets?.fal,
+    },
+  };
+}
+
+export function getProviderSecrets(
+  config: AiImgConfig | null | undefined
+): ProviderSecretMap {
+  return resolveRuntimeConfig(config).secrets;
+}
+
+export function isEditableConfigKey(key: string): key is EditableConfigKey {
+  return EDITABLE_CONFIG_KEYS.includes(key as EditableConfigKey);
+}
+
+export function parseEditableConfigValue(key: string, rawValue: string): unknown {
+  if (!isEditableConfigKey(key)) {
+    throw new Error(`Unsupported config key: ${key}`);
+  }
+  const schema = EDITABLE_KEY_SCHEMAS[key];
+  const result = schema.safeParse(rawValue);
+  if (!result.success) {
+    throw new Error(`Invalid value for ${key}: ${formatIssue(result.error)}`);
+  }
+  return result.data;
+}
+
+function ensureObject(value: unknown): Record<string, unknown> {
+  if (isPlainObject(value)) {
+    return value;
+  }
+  return {};
+}
+
+export function setConfigValue(
+  input: AiImgConfigFile | Record<string, unknown>,
+  key: string,
+  value: unknown
+): Record<string, unknown> {
+  const root = ensureObject(input);
+  const parts = key.split(".");
+
+  let current: Record<string, unknown> = root;
+  for (let index = 0; index < parts.length - 1; index++) {
+    const part = parts[index];
+    current[part] = ensureObject(current[part]);
+    current = current[part] as Record<string, unknown>;
+  }
+
+  current[parts[parts.length - 1]] = value;
+  return root;
+}
+
+export function unsetConfigValue(
+  input: AiImgConfigFile | Record<string, unknown>,
+  key: string
+): Record<string, unknown> {
+  const root = ensureObject(input);
+  const parts = key.split(".");
+
+  const walk = (node: Record<string, unknown>, index: number): boolean => {
+    const part = parts[index];
+    if (!(part in node)) {
+      return Object.keys(node).length === 0;
+    }
+
+    if (index === parts.length - 1) {
+      delete node[part];
+      return Object.keys(node).length === 0;
+    }
+
+    const next = node[part];
+    if (!isPlainObject(next)) {
+      delete node[part];
+      return Object.keys(node).length === 0;
+    }
+
+    const emptyChild = walk(next, index + 1);
+    if (emptyChild) {
+      delete node[part];
+    }
+    return Object.keys(node).length === 0;
+  };
+
+  walk(root, 0);
+  return root;
+}
+
+export async function loadConfigFile(
+  path: string
+): Promise<AiImgConfigFile | Record<string, unknown>> {
+  const existing = await readConfigFragment(path);
+  return existing ?? {};
+}
+
+export async function writeConfigFile(
+  path: string,
+  value: Record<string, unknown>
+): Promise<void> {
+  const parsed = AiImgConfigFileSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(`Refusing to write invalid config to ${path}: ${formatIssue(parsed.error)}`);
+  }
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(parsed.data, null, 2)}\n`, "utf-8");
+}
+
+export function createInitialConfig(): AiImgConfig {
+  return {
+    aiImg: {
+      schemaVersion: 1,
+      defaults: {
+        size: DEFAULT_RUNTIME_CONFIG.defaults.size,
+        output: DEFAULT_RUNTIME_CONFIG.defaults.output,
+      },
+      generate: {
+        count: DEFAULT_RUNTIME_CONFIG.generate.count,
+      },
+      edit: {
+        count: DEFAULT_RUNTIME_CONFIG.edit.count,
+      },
+      batch: {
+        concurrency: DEFAULT_RUNTIME_CONFIG.batch.concurrency,
+        maxAttempts: DEFAULT_RUNTIME_CONFIG.batch.maxAttempts,
+      },
+      preview: {
+        mode: DEFAULT_RUNTIME_CONFIG.preview.mode,
+        protocol: DEFAULT_RUNTIME_CONFIG.preview.protocol,
+        width: DEFAULT_RUNTIME_CONFIG.preview.width,
+      },
+      secrets: {},
+    },
+  };
+}
+
+export function redactSecrets(config: AiImgConfig): Record<string, unknown> {
+  const clone = JSON.parse(JSON.stringify(config)) as Record<string, unknown>;
+  const secrets = (clone.aiImg as Record<string, unknown>)?.secrets as
+    | Record<string, unknown>
+    | undefined;
+  if (secrets) {
+    for (const key of Object.keys(secrets)) {
+      if (typeof secrets[key] === "string" && (secrets[key] as string).length > 0) {
+        secrets[key] = "***redacted***";
+      }
+    }
+  }
+  return clone;
+}
