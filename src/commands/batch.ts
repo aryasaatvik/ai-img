@@ -8,8 +8,9 @@ import {
   resolveProviderSelection,
   validateProvider,
 } from "../lib/provider";
+import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
 import { readFile, writeFile, mkdir } from "fs/promises";
-import { dirname } from "path";
+import { dirname, join } from "path";
 
 interface BatchJob {
   prompt: string;
@@ -29,11 +30,11 @@ export const batchCommand = defineCommand({
       short: "i",
       description: "Input JSONL file path (one job per line)",
     }),
-    outDir: option(z.string().default("./output"), {
+    outDir: option(z.string().optional(), {
       short: "o",
       description: "Output directory",
     }),
-    concurrency: option(z.coerce.number().min(1).max(25).default(5), {
+    concurrency: option(z.coerce.number().min(1).max(25).optional(), {
       short: "c",
       description: "Concurrent API calls",
     }),
@@ -45,44 +46,55 @@ export const batchCommand = defineCommand({
       short: "P",
       description: "AI provider: openai, google, fal (auto-detected if omitted)",
     }),
-    maxAttempts: option(z.coerce.number().min(1).max(10).default(3), {
+    maxAttempts: option(z.coerce.number().min(1).max(10).optional(), {
       description: "Max retry attempts for failed jobs",
     }),
   },
-  handler: async ({ flags }) => {
+  handler: async ({ flags, cwd }) => {
     if (!flags.input) {
       console.error("Error: --input is required");
       process.exit(1);
     }
 
     try {
-      const selection = resolveProviderSelection(flags.provider);
+      const loadedConfig = await loadAiImgConfig({ cwd });
+      const runtimeConfig = resolveRuntimeConfig(loadedConfig.config);
+      const secrets = runtimeConfig.secrets;
+
+      const requestedProvider = flags.provider ?? runtimeConfig.defaults.provider;
+      const selection = resolveProviderSelection(requestedProvider, secrets);
       const provider = selection.provider;
-      requireApiKey(provider);
+      requireApiKey(provider, secrets);
 
-      const defaultModelId = resolveModel(provider, flags.model);
+      const defaultModelId = resolveModel(
+        provider,
+        flags.model ?? runtimeConfig.defaults.model
+      );
+      const outDir = flags.outDir ?? runtimeConfig.defaults.outDir ?? "./output";
+      const concurrency = flags.concurrency ?? runtimeConfig.batch.concurrency;
+      const maxAttempts = flags.maxAttempts ?? runtimeConfig.batch.maxAttempts;
 
-      await mkdir(flags.outDir, { recursive: true });
+      await mkdir(outDir, { recursive: true });
 
       const content = await readFile(flags.input, "utf-8");
       const lines = content.trim().split("\n").filter((line) => line.trim());
 
-      console.log(`Default model: ${defaultModelId}`);
-      console.log(`Processing ${lines.length} jobs with concurrency ${flags.concurrency}...`);
+      console.log(`Default model: ${defaultModelId ?? "provider default"}`);
+      console.log(`Processing ${lines.length} jobs with concurrency ${concurrency}...`);
 
       let successCount = 0;
       let failCount = 0;
 
-      for (let i = 0; i < lines.length; i += flags.concurrency) {
-        const batch = lines.slice(i, i + flags.concurrency);
+      for (let i = 0; i < lines.length; i += concurrency) {
+        const batch = lines.slice(i, i + concurrency);
         const results = await Promise.allSettled(
           batch.map(async (line, idx) => {
             const job: BatchJob = JSON.parse(line);
             const jobIndex = i + idx;
             const jobProvider = job.provider ? validateProvider(job.provider) : provider;
-            requireApiKey(jobProvider);
+            requireApiKey(jobProvider, secrets);
 
-            const jobModelInput = job.model || flags.model;
+            const jobModelInput = job.model || flags.model || runtimeConfig.defaults.model;
             const jobModelId = resolveModel(jobProvider, jobModelInput);
             const model = getModel(jobProvider, jobModelId);
 
@@ -91,19 +103,19 @@ export const batchCommand = defineCommand({
             );
 
             let attempts = 0;
-            while (attempts < flags.maxAttempts) {
+            while (attempts < maxAttempts) {
               try {
                 const result = await generateImage({
                   model,
                   prompt: job.prompt,
                   n: job.n || 1,
-                  size: (job.size as `${number}x${number}`) || "1024x1024",
+                  size: (job.size as `${number}x${number}`) || runtimeConfig.defaults.size,
                 });
 
                 for (let imgIdx = 0; imgIdx < result.images.length; imgIdx++) {
                   const image = result.images[imgIdx];
                   const outFile = job.out || `output-${jobIndex}-${imgIdx}.png`;
-                  const filePath = `${flags.outDir}/${outFile}`;
+                  const filePath = join(outDir, outFile);
 
                   await mkdir(dirname(filePath), { recursive: true });
                   await writeFile(filePath, image.uint8Array);
@@ -113,10 +125,10 @@ export const batchCommand = defineCommand({
                 return { success: true };
               } catch (error) {
                 attempts++;
-                if (attempts >= flags.maxAttempts) {
+                if (attempts >= maxAttempts) {
                   throw error;
                 }
-                console.log(`  Retry ${attempts}/${flags.maxAttempts}...`);
+                console.log(`  Retry ${attempts}/${maxAttempts}...`);
                 await new Promise((r) => setTimeout(r, 1000 * attempts));
               }
             }
@@ -146,3 +158,5 @@ export const batchCommand = defineCommand({
     }
   },
 });
+
+export default batchCommand;

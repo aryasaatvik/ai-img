@@ -7,8 +7,10 @@ import {
   resolveModel,
   resolveProviderSelection,
 } from "../lib/provider";
+import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
+import { renderPreviewImage, resolvePreviewOptions } from "../lib/preview";
 import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname } from "path";
+import { dirname, join } from "path";
 
 export const editCommand = defineCommand({
   name: "edit",
@@ -33,15 +35,15 @@ export const editCommand = defineCommand({
       short: "P",
       description: "AI provider: openai, google, fal (auto-detected if omitted)",
     }),
-    size: option(z.string().default("1024x1024"), {
+    size: option(z.string().optional(), {
       short: "s",
       description: "Image size",
     }),
-    count: option(z.coerce.number().min(1).max(10).default(1), {
+    count: option(z.coerce.number().min(1).max(10).optional(), {
       short: "c",
       description: "Number of images to generate",
     }),
-    output: option(z.string().default("output.png"), {
+    output: option(z.string().optional(), {
       short: "o",
       description: "Output file path",
     }),
@@ -49,7 +51,7 @@ export const editCommand = defineCommand({
       description: "Output directory",
     }),
   },
-  handler: async ({ flags }) => {
+  handler: async ({ flags, cwd }) => {
     if (!flags.prompt) {
       console.error("Error: --prompt is required");
       process.exit(1);
@@ -61,17 +63,28 @@ export const editCommand = defineCommand({
     }
 
     try {
-      const selection = resolveProviderSelection(flags.provider);
-      const provider = selection.provider;
-      requireApiKey(provider);
+      const loadedConfig = await loadAiImgConfig({ cwd });
+      const runtimeConfig = resolveRuntimeConfig(loadedConfig.config);
+      const secrets = runtimeConfig.secrets;
 
-      const modelId = resolveModel(provider, flags.model);
+      const requestedProvider = flags.provider ?? runtimeConfig.defaults.provider;
+      const selection = resolveProviderSelection(requestedProvider, secrets);
+      const provider = selection.provider;
+      requireApiKey(provider, secrets);
+
+      const modelId = resolveModel(provider, flags.model ?? runtimeConfig.defaults.model);
       const model = getModel(provider, modelId);
 
-      const outputPath = flags.outDir
-        ? `${flags.outDir}/${flags.output}`
-        : flags.output;
+      const size = flags.size ?? runtimeConfig.defaults.size;
+      const count = flags.count ?? runtimeConfig.edit.count;
+      const output = flags.output ?? runtimeConfig.defaults.output;
+      const outDir = flags.outDir ?? runtimeConfig.defaults.outDir;
+      const outputPath = outDir ? join(outDir, output) : output;
       await mkdir(dirname(outputPath), { recursive: true });
+      const previewOptions = resolvePreviewOptions(
+        runtimeConfig,
+        flags as unknown as Record<string, unknown>
+      );
 
       console.log(`Editing image(s) with ${provider}...`);
       console.log(`Input: ${flags.input}`);
@@ -100,8 +113,8 @@ export const editCommand = defineCommand({
           images: imageBuffers,
           ...(maskBuffer && { mask: maskBuffer }),
         },
-        n: flags.count,
-        size: flags.size as `${number}x${number}`,
+        n: count,
+        size: size as `${number}x${number}`,
       });
 
       console.log(`\nGenerated ${result.images.length} image(s)`);
@@ -109,13 +122,26 @@ export const editCommand = defineCommand({
       // Save each image
       for (let i = 0; i < result.images.length; i++) {
         const image = result.images[i];
-        const ext = flags.output.split(".").pop() || "png";
-        const filePath = flags.count > 1
+        const ext = output.split(".").pop() || "png";
+        const filePath = count > 1
           ? outputPath.replace(/\.[^.]+$/, `-${i + 1}.${ext}`)
           : outputPath;
 
         await writeFile(filePath, image.uint8Array);
         console.log(`Saved: ${filePath}`);
+
+        if (previewOptions.mode !== "off") {
+          const previewResult = await renderPreviewImage(
+            image.uint8Array,
+            previewOptions,
+            filePath
+          );
+          if (previewResult.rendered) {
+            console.log(`Preview: rendered (${filePath})`);
+          } else {
+            console.log(`Preview: skipped (${previewResult.reason ?? "not-rendered"})`);
+          }
+        }
       }
 
       console.log("\nDone!");
@@ -125,3 +151,5 @@ export const editCommand = defineCommand({
     }
   },
 });
+
+export default editCommand;
