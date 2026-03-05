@@ -69,7 +69,7 @@ const AiImgConfigBodySchema = z
   })
   .strict();
 
-const AiImgConfigFileSchema = z
+export const AiImgConfigFileSchema = z
   .object({
     aiImg: AiImgConfigBodySchema.extend({
       schemaVersion: z.literal(1).optional(),
@@ -350,6 +350,21 @@ async function readConfigFragment(path: string): Promise<AiImgConfigFile | null>
   }
 }
 
+function normalizeMergedConfig(merged: Record<string, unknown>): Record<string, unknown> {
+  const aiImg = merged.aiImg;
+  if (!isPlainObject(aiImg) || aiImg.schemaVersion !== undefined) {
+    return merged;
+  }
+
+  return {
+    ...merged,
+    aiImg: {
+      ...aiImg,
+      schemaVersion: 1,
+    },
+  };
+}
+
 export async function loadAiImgConfig(
   options: LoadAiImgConfigOptions = {}
 ): Promise<LoadedAiImgConfig> {
@@ -370,7 +385,8 @@ export async function loadAiImgConfig(
     return { config: null, sources: status };
   }
 
-  const parsed = AiImgConfigSchema.safeParse(merged);
+  const normalized = normalizeMergedConfig(merged);
+  const parsed = AiImgConfigSchema.safeParse(normalized);
   if (!parsed.success) {
     throw new Error(`Invalid merged ai-img config: ${formatIssue(parsed.error)}`);
   }

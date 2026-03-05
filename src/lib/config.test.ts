@@ -121,6 +121,26 @@ describe("config runtime resolution", () => {
     expect(basename(sources[2]?.path ?? "")).toBe(".ai-imgrc.json");
     expect(basename(sources[3]?.path ?? "")).toBe(".ai-imgrc.local.json");
   });
+
+  test("normalizes schemaVersion to 1 when omitted in loaded files", async () => {
+    const cwd = await makeTempDir("ai-img-schema-version-");
+    const projectPath = join(cwd, "project.json");
+    await writeJson(projectPath, {
+      aiImg: {
+        defaults: {
+          output: "project.png",
+        },
+      },
+    });
+
+    const loaded = await loadAiImgConfig({
+      cwd,
+      sources: [{ path: projectPath, kind: "project" }],
+    });
+
+    expect(loaded.config?.aiImg.schemaVersion).toBe(1);
+    expect(loaded.config?.aiImg.defaults?.output).toBe("project.png");
+  });
 });
 
 describe("config validation + mutators", () => {

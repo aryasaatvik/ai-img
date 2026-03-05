@@ -131,9 +131,6 @@
           "const": 1
         }
       },
-      "required": [
-        "schemaVersion"
-      ],
       "additionalProperties": false
     }
   },
