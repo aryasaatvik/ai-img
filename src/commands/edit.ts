@@ -8,7 +8,12 @@ import {
   resolveProviderSelection,
 } from "../lib/provider";
 import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
-import { renderPreviewImage, resolvePreviewOptions } from "../lib/preview";
+import {
+  preflightStrictPreview,
+  renderPreviewImage,
+  resolvePreviewOptions,
+} from "../lib/preview";
+import { imageModeOption } from "./shared/preview-options";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { dirname, join } from "path";
 
@@ -50,6 +55,7 @@ export const editCommand = defineCommand({
     outDir: option(z.string().optional(), {
       description: "Output directory",
     }),
+    "image-mode": imageModeOption,
   },
   handler: async ({ flags, cwd }) => {
     if (!flags.prompt) {
@@ -65,6 +71,8 @@ export const editCommand = defineCommand({
     try {
       const loadedConfig = await loadAiImgConfig({ cwd });
       const runtimeConfig = resolveRuntimeConfig(loadedConfig.config);
+      const previewOptions = resolvePreviewOptions(runtimeConfig, flags);
+      preflightStrictPreview(previewOptions);
       const secrets = runtimeConfig.secrets;
 
       const requestedProvider = flags.provider ?? runtimeConfig.defaults.provider;
@@ -81,10 +89,6 @@ export const editCommand = defineCommand({
       const outDir = flags.outDir ?? runtimeConfig.defaults.outDir;
       const outputPath = outDir ? join(outDir, output) : output;
       await mkdir(dirname(outputPath), { recursive: true });
-      const previewOptions = resolvePreviewOptions(
-        runtimeConfig,
-        flags as unknown as Record<string, unknown>
-      );
 
       console.log(`Editing image(s) with ${provider}...`);
       console.log(`Input: ${flags.input}`);

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { detectPreviewMimeType, resolvePreviewOptions } from "./preview";
+import {
+  detectPreviewMimeType,
+  preflightStrictPreview,
+  resolvePreviewOptions,
+} from "./preview";
 import type { ResolvedAiImgRuntimeConfig } from "./config";
+import type { ImageCapability } from "@bunli/runtime/image";
 
 const baseRuntimeConfig: ResolvedAiImgRuntimeConfig = {
   defaults: {
@@ -58,6 +63,35 @@ describe("preview config resolution", () => {
 
     expect(options.mode).toBe("on");
     expect(options.protocol).toBe("auto");
+  });
+});
+
+describe("strict preview preflight", () => {
+  test("throws in strict mode when capability is unsupported", () => {
+    const unsupported: ImageCapability = {
+      supported: false,
+      protocol: "none",
+      reason: "not-interactive",
+    };
+    expect(() =>
+      preflightStrictPreview(
+        { mode: "on", protocol: "auto", width: 32 },
+        unsupported
+      )
+    ).toThrow("Preview unavailable in strict mode: not-interactive");
+  });
+
+  test("does not throw when strict mode is supported", () => {
+    const supported: ImageCapability = {
+      supported: true,
+      protocol: "kitty",
+    };
+    expect(() =>
+      preflightStrictPreview(
+        { mode: "on", protocol: "kitty", width: 32 },
+        supported
+      )
+    ).not.toThrow();
   });
 });
 

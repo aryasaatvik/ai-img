@@ -10,6 +10,7 @@ import {
 } from "../lib/provider";
 import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
 import { getPreviewCapability, resolvePreviewOptions } from "../lib/preview";
+import { imageModeOption } from "./shared/preview-options";
 
 export const statusCommand = defineCommand({
   name: "status",
@@ -19,15 +20,13 @@ export const statusCommand = defineCommand({
       short: "P",
       description: "Provider to inspect (openai, google, fal)",
     }),
+    "image-mode": imageModeOption,
   },
   handler: async ({ flags, cwd }) => {
     try {
       const loadedConfig = await loadAiImgConfig({ cwd });
       const runtimeConfig = resolveRuntimeConfig(loadedConfig.config);
-      const previewOptions = resolvePreviewOptions(
-        runtimeConfig,
-        flags as unknown as Record<string, unknown>
-      );
+      const previewOptions = resolvePreviewOptions(runtimeConfig, flags);
       const previewCapability = getPreviewCapability();
       const detections = detectProviderEnv(runtimeConfig.secrets);
 

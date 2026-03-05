@@ -2,14 +2,21 @@ import {
   detectImageCapability,
   renderImage,
   resolveImageRenderMode,
+  type ImageCapability,
   type ImageMimeType,
   type RenderImageOptions,
 } from "@bunli/runtime/image";
 import type { ResolvedAiImgRuntimeConfig } from "./config";
 
+export type PreviewMode = "off" | "auto" | "on";
+
+export interface PreviewFlagInput {
+  "image-mode"?: PreviewMode;
+}
+
 export function resolvePreviewOptions(
   runtimeConfig: ResolvedAiImgRuntimeConfig,
-  flags: Record<string, unknown>
+  flags: PreviewFlagInput
 ): Pick<RenderImageOptions, "mode" | "protocol" | "width"> {
   const rawFlagMode = flags["image-mode"];
   const flagMode =
@@ -26,6 +33,22 @@ export function resolvePreviewOptions(
     protocol: runtimeConfig.preview.protocol,
     width: runtimeConfig.preview.width,
   };
+}
+
+export function preflightStrictPreview(
+  options: Pick<RenderImageOptions, "mode" | "protocol" | "width">,
+  capability: ImageCapability = detectImageCapability()
+): void {
+  if (options.mode !== "on") {
+    return;
+  }
+
+  if (capability.supported) {
+    return;
+  }
+
+  const reason = capability.reason ?? "unsupported";
+  throw new Error(`Preview unavailable in strict mode: ${reason}`);
 }
 
 export async function renderPreviewImage(
@@ -49,6 +72,9 @@ export async function renderPreviewImage(
     },
     options
   );
+  if (!result.rendered && options.mode === "on") {
+    throw new Error(`Preview failed: ${result.reason ?? "not-rendered"}`);
+  }
   if (result.rendered) {
     process.stdout.write("\n");
   }
