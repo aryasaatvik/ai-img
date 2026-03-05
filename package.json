@@ -23,7 +23,7 @@
     "generate:schema:check": "bun run scripts/generate-json-schema.ts --check",
     "cli": "bun run src/index.ts",
     "test": "bun test",
-    "release": "bun run typecheck && bun run generate:schema:check && bunli release",
+    "release": "bun run typecheck && bun run test && bun run generate:schema:check && bunli release",
     "start": "bun start",
     "typecheck": "tsc --noEmit"
   },
