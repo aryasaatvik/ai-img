@@ -17,9 +17,15 @@ export const configInitCommand = defineCommand({
       file: flags.file,
     });
 
+    if (flags.force) {
+      await writeConfigFile(path, createInitialConfig());
+      console.log(`Initialized config at ${path}`);
+      return;
+    }
+
     const existing = await loadConfigFile(path);
     const hasExistingData = Object.keys(existing).length > 0;
-    if (hasExistingData && !flags.force) {
+    if (hasExistingData) {
       throw new Error(
         `Config file already exists at ${path}. Re-run with --force=true to overwrite.`
       );
