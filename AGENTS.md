@@ -15,7 +15,7 @@ ai-img/
 │   │   ├── edit.ts         # Image editing
 │   │   ├── batch.ts        # Batch processing
 │   │   ├── status.ts       # Provider/config diagnostics
-│   │   └── config.ts       # Config init/show/set/unset
+│   │   └── config/         # Config init/show/set/unset group
 │   └── lib/
 │       ├── provider.ts     # Provider + credential resolution
 │       └── config.ts       # Runtime config schema/load/resolve helpers
@@ -33,7 +33,8 @@ ai-img/
 | Add new command | `src/commands/` | Use `defineCommand` + `option` |
 | Add new provider | `src/lib/provider.ts` | Update metadata + factory + priority |
 | Runtime config behavior | `src/lib/config.ts` | Schema, merge precedence, editable keys |
-| Config command UX | `src/commands/config.ts` | `init/show/set/unset` |
+| Config command UX | `src/commands/config/` | `init/show/set/unset` |
+| Preview mode + rendering | `src/lib/preview.ts` | Flag/config precedence + runtime render calls |
 | CLI configuration | `src/index.ts` | Command registration + Bunli plugins |
 | Schema generation | `scripts/generate-json-schema.ts` | Emits `ai-img.schema.json` |
 

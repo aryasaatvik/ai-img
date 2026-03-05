@@ -55,11 +55,16 @@ ai-img batch -i jobs.jsonl -o ./output
 # Provider/config status
 ai-img status
 
-# Force strict preview rendering
+# Force strict preview rendering (supported on generate/edit)
 ai-img generate -p "a cat wearing sunglasses" --image-mode on
+ai-img edit -p "make it blue" -i input.png --image-mode on
+
+# Inspect preview mode resolution with explicit flag
+ai-img status --image-mode on
 
 # Manage runtime config
 ai-img config init
+ai-img config init --target project
 ai-img config show
 ai-img config set aiImg.defaults.provider openai
 ai-img config set aiImg.preview.mode auto
@@ -116,6 +121,8 @@ Runtime precedence is:
 3. User config
 4. Built-in defaults
 
+`config init/set/unset` defaults to `--target user`. Use `--target project` to write local project config.
+
 For preview mode specifically, precedence is:
 1. `--image-mode` flag
 2. `aiImg.preview.mode` config
@@ -163,9 +170,10 @@ For preview mode specifically, precedence is:
 
 - Preview mode values: `off`, `auto`, `on`
 - `auto` is best-effort and non-fatal when rendering is unavailable
-- `on` is strict and fails when preview cannot render
+- `on` is strict and fails fast before provider API calls when preview is unsupported
 - Default thumbnail width is `32` columns; only width is set so aspect ratio is preserved
 - Current protocol support is Kitty-compatible terminals (for example Kitty, Ghostty)
+- `aiImg.schemaVersion` defaults to `1` during config load when omitted
 
 ## IDE Autocomplete via JSON Schema
 
