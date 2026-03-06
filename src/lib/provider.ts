@@ -1,6 +1,6 @@
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
-import { fal } from "@ai-sdk/fal";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createFal } from "@ai-sdk/fal";
 import type { ImageModel } from "ai";
 
 export type ProviderName = "openai" | "google" | "fal";
@@ -36,12 +36,6 @@ const PROVIDER_METADATA: Record<ProviderName, ProviderMetadata> = {
 };
 
 const PROVIDER_PRIORITY: readonly ProviderName[] = ["openai", "google", "fal"];
-
-const PROVIDER_FACTORIES = {
-  openai,
-  google,
-  fal,
-} as const;
 
 export interface ProviderDetection {
   provider: ProviderName;
@@ -118,8 +112,17 @@ export function describeKeySource(provider: ProviderName, secrets?: ProviderSecr
   return "unconfigured";
 }
 
-export function getProvider(name: ProviderName) {
-  return PROVIDER_FACTORIES[name];
+export function getProvider(name: ProviderName, secrets?: ProviderSecretMap) {
+  const apiKey = getApiKey(name, secrets);
+
+  switch (name) {
+    case "openai":
+      return createOpenAI({ apiKey });
+    case "google":
+      return createGoogleGenerativeAI({ apiKey });
+    case "fal":
+      return createFal({ apiKey });
+  }
 }
 
 export function getDefaultModel(provider: ProviderName): string {
@@ -130,8 +133,12 @@ export function resolveModel(provider: ProviderName, model?: string): string {
   return model || getDefaultModel(provider);
 }
 
-export function getModel(provider: ProviderName, model?: string): ImageModel {
-  const providerSdk = getProvider(provider);
+export function getModel(
+  provider: ProviderName,
+  model?: string,
+  secrets?: ProviderSecretMap
+): ImageModel {
+  const providerSdk = getProvider(provider, secrets);
   const modelId = resolveModel(provider, model);
   return providerSdk.image(modelId) as ImageModel;
 }

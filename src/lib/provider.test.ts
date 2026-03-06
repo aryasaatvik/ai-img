@@ -4,6 +4,7 @@ import {
   detectProviderEnv,
   getApiKey,
   getApiKeySource,
+  getModel,
   resolveProviderSelection,
   type ProviderSecretMap,
 } from "./provider";
@@ -14,6 +15,7 @@ const ENV_KEYS = [
   "GEMINI_API_KEY",
   "GOOGLE_GENERATIVE_AI_API_KEY",
   "FAL_API_KEY",
+  "FAL_KEY",
 ] as const;
 
 const originalEnv: Record<string, string | undefined> = {};
@@ -94,5 +96,65 @@ describe("provider secret precedence", () => {
       delete process.env[key];
     }
     expect(() => resolveProviderSelection(undefined, {})).toThrow("No provider detected");
+  });
+
+  test("getModel injects config-backed fal API key into provider requests", async () => {
+    delete process.env.FAL_API_KEY;
+    delete process.env.FAL_KEY;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input, init) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
+
+      const headers = new Headers(
+        init?.headers ??
+          (input instanceof Request ? input.headers : undefined)
+      );
+
+      if (url === "https://fal.run/fal-ai/flux/dev") {
+        expect(headers.get("Authorization")).toBe("Key cfg-fal");
+        return new Response(
+          JSON.stringify({
+            images: [{ url: "https://example.com/image.png" }],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }
+        );
+      }
+
+      if (url === "https://example.com/image.png") {
+        return new Response(new Uint8Array([1, 2, 3]), {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    }) as typeof fetch;
+
+    try {
+      const model = getModel("fal", "fal-ai/flux/dev", { fal: "cfg-fal" }) as {
+        doGenerate: (options: { prompt: string; size: `${number}x${number}` }) => Promise<{
+          images: Uint8Array[];
+        }>;
+      };
+
+      const result = await model.doGenerate({
+        prompt: "coffee beans",
+        size: "1024x1024",
+      });
+
+      expect(result.images).toHaveLength(1);
+      expect(Array.from(result.images[0])).toEqual([1, 2, 3]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
