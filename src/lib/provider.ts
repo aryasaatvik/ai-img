@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createFal } from "@ai-sdk/fal";
-import type { ImageModel } from "ai";
+import type { ImageModelV3 } from "@ai-sdk/provider";
 
 export type ProviderName = "openai" | "google" | "fal";
 export type ProviderSecretMap = Partial<Record<ProviderName, string>>;
@@ -137,10 +137,10 @@ export function getModel(
   provider: ProviderName,
   model?: string,
   secrets?: ProviderSecretMap
-): ImageModel {
+): ImageModelV3 {
   const providerSdk = getProvider(provider, secrets);
   const modelId = resolveModel(provider, model);
-  return providerSdk.image(modelId) as ImageModel;
+  return providerSdk.image(modelId) as ImageModelV3;
 }
 
 export function getApiKey(

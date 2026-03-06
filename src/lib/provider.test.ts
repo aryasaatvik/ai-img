@@ -140,18 +140,24 @@ describe("provider secret precedence", () => {
     }) as typeof fetch;
 
     try {
-      const model = getModel("fal", "fal-ai/flux/dev", { fal: "cfg-fal" }) as {
-        doGenerate: (options: { prompt: string; size: `${number}x${number}` }) => Promise<{
-          images: Uint8Array[];
-        }>;
-      };
+      const model = getModel("fal", "fal-ai/flux/dev", { fal: "cfg-fal" });
 
       const result = await model.doGenerate({
         prompt: "coffee beans",
+        n: 1,
         size: "1024x1024",
+        aspectRatio: undefined,
+        seed: undefined,
+        providerOptions: {},
+        files: [],
+        mask: undefined,
       });
 
       expect(result.images).toHaveLength(1);
+      expect(result.images[0]).toBeInstanceOf(Uint8Array);
+      if (!(result.images[0] instanceof Uint8Array)) {
+        throw new Error("Expected fal image result to be Uint8Array");
+      }
       expect(Array.from(result.images[0])).toEqual([1, 2, 3]);
     } finally {
       globalThis.fetch = originalFetch;
