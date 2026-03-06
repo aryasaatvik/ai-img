@@ -77,7 +77,7 @@ export const generateCommand = defineCommand({
       const provider = selection.provider;
       requireApiKey(provider, secrets);
       const modelId = resolveModel(provider, flags.model ?? runtimeConfig.defaults.model);
-      const model = getModel(provider, modelId);
+      const model = getModel(provider, modelId, secrets);
 
       const count = flags.count ?? runtimeConfig.generate.count;
       const quality = flags.quality ?? runtimeConfig.generate.quality;

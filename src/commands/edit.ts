@@ -81,7 +81,7 @@ export const editCommand = defineCommand({
       requireApiKey(provider, secrets);
 
       const modelId = resolveModel(provider, flags.model ?? runtimeConfig.defaults.model);
-      const model = getModel(provider, modelId);
+      const model = getModel(provider, modelId, secrets);
 
       const size = flags.size ?? runtimeConfig.defaults.size;
       const count = flags.count ?? runtimeConfig.edit.count;

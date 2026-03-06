@@ -96,7 +96,7 @@ export const batchCommand = defineCommand({
 
             const jobModelInput = job.model || flags.model || runtimeConfig.defaults.model;
             const jobModelId = resolveModel(jobProvider, jobModelInput);
-            const model = getModel(jobProvider, jobModelId);
+            const model = getModel(jobProvider, jobModelId, secrets);
 
             console.log(
               `[${jobIndex + 1}/${lines.length}] Generating (${jobProvider}/${jobModelId}): ${job.prompt?.substring(0, 50)}...`
