@@ -24,6 +24,10 @@
               "type": "string",
               "pattern": "^\\d+x\\d+$"
             },
+            "aspectRatio": {
+              "type": "string",
+              "pattern": "^\\d+:\\d+$"
+            },
             "output": {
               "type": "string",
               "minLength": 1

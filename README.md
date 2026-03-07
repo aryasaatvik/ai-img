@@ -123,6 +123,12 @@ Runtime precedence is:
 
 `config init/set/unset` defaults to `--target user`. Use `--target project` to write local project config.
 
+Image dimensions are model-aware:
+- Set `aiImg.defaults.size` for size-based models.
+- Set `aiImg.defaults.aspectRatio` for aspect-ratio-based models.
+- If neither is configured, `ai-img` uses a blessed model preset when known, otherwise it leaves dimensions unset and uses the provider/model default.
+- Existing `size` defaults are automatically converted for blessed Google image models when possible.
+
 For preview mode specifically, precedence is:
 1. `--image-mode` flag
 2. `aiImg.preview.mode` config
@@ -138,6 +144,7 @@ For preview mode specifically, precedence is:
       "provider": "openai",
       "model": "gpt-image-1.5",
       "size": "1024x1024",
+      "aspectRatio": "1:1",
       "output": "output.png",
       "outDir": "./output"
     },
@@ -164,6 +171,14 @@ For preview mode specifically, precedence is:
     }
   }
 }
+```
+
+Set either `size` or `aspectRatio` for a given workflow. If both exist in config, `ai-img` prefers the model-native option for the selected blessed model.
+
+Batch JSONL jobs can also override dimensions per job with either field:
+
+```json
+{"prompt":"Green terminal UI", "aspectRatio":"16:9"}
 ```
 
 ### Terminal Preview Notes
