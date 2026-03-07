@@ -55,7 +55,8 @@ function collectLeafPaths(schema: z.ZodTypeAny, prefix = ""): string[] {
 describe("config runtime resolution", () => {
   test("returns code defaults when config is missing", () => {
     const resolved = resolveRuntimeConfig(null);
-    expect(resolved.defaults.size).toBe("1024x1024");
+    expect(resolved.defaults.size).toBeUndefined();
+    expect(resolved.defaults.aspectRatio).toBeUndefined();
     expect(resolved.defaults.output).toBe("output.png");
     expect(resolved.generate.count).toBe(1);
     expect(resolved.batch.concurrency).toBe(5);
@@ -186,10 +187,14 @@ describe("config validation + mutators", () => {
     expect(parseEditableConfigValue("aiImg.batch.concurrency", "3")).toBe(3);
     expect(parseEditableConfigValue("aiImg.preview.mode", "on")).toBe("on");
     expect(parseEditableConfigValue("aiImg.schemaVersion", "1")).toBe(1);
+    expect(parseEditableConfigValue("aiImg.defaults.aspectRatio", "16:9")).toBe("16:9");
     expect(() => parseEditableConfigValue("aiImg.batch.concurrency", "0")).toThrow(
       "Invalid value"
     );
     expect(() => parseEditableConfigValue("aiImg.defaults.size", "1024")).toThrow(
+      "Invalid value"
+    );
+    expect(() => parseEditableConfigValue("aiImg.defaults.aspectRatio", "1024x1024")).toThrow(
       "Invalid value"
     );
     expect(() => parseEditableConfigValue("aiImg.schemaVersion", "2")).toThrow("Invalid value");

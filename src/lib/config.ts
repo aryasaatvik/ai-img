@@ -17,6 +17,7 @@ const AiImgDefaultsSchema = z
     provider: ProviderSchema.optional(),
     model: z.string().min(1).optional(),
     size: z.string().regex(/^\d+x\d+$/, "Expected WIDTHxHEIGHT").optional(),
+    aspectRatio: z.string().regex(/^\d+:\d+$/, "Expected WIDTH:HEIGHT").optional(),
     output: z.string().min(1).optional(),
     outDir: z.string().min(1).optional(),
   })
@@ -128,7 +129,8 @@ export interface ResolvedAiImgRuntimeConfig {
   defaults: {
     provider?: ProviderName;
     model?: string;
-    size: string;
+    size?: string;
+    aspectRatio?: string;
     output: string;
     outDir?: string;
   };
@@ -153,7 +155,6 @@ export interface ResolvedAiImgRuntimeConfig {
 
 export const DEFAULT_RUNTIME_CONFIG: ResolvedAiImgRuntimeConfig = {
   defaults: {
-    size: "1024x1024",
     output: "output.png",
   },
   generate: {
@@ -407,7 +408,8 @@ export function resolveRuntimeConfig(
     defaults: {
       provider: aiImg.defaults?.provider,
       model: aiImg.defaults?.model,
-      size: aiImg.defaults?.size ?? DEFAULT_RUNTIME_CONFIG.defaults.size,
+      size: aiImg.defaults?.size,
+      aspectRatio: aiImg.defaults?.aspectRatio,
       output: aiImg.defaults?.output ?? DEFAULT_RUNTIME_CONFIG.defaults.output,
       outDir: aiImg.defaults?.outDir,
     },
@@ -545,7 +547,6 @@ export function createInitialConfig(): AiImgConfig {
     aiImg: {
       schemaVersion: 1,
       defaults: {
-        size: DEFAULT_RUNTIME_CONFIG.defaults.size,
         output: DEFAULT_RUNTIME_CONFIG.defaults.output,
       },
       generate: {

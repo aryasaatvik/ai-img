@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
+  convertSizeToAspectRatio,
   describeKeySource,
   detectProviderEnv,
+  formatImageWarning,
   getApiKey,
   getApiKeySource,
   getModel,
+  getModelPreset,
+  resolveImageDimensions,
   resolveProviderSelection,
   type ProviderSecretMap,
 } from "./provider";
@@ -96,6 +100,78 @@ describe("provider secret precedence", () => {
       delete process.env[key];
     }
     expect(() => resolveProviderSelection(undefined, {})).toThrow("No provider detected");
+  });
+
+  test("exposes blessed model presets", () => {
+    expect(getModelPreset("google", "gemini-3.1-flash-image-preview")).toMatchObject({
+      supportsSize: false,
+      supportsAspectRatio: true,
+      defaultAspectRatio: "1:1",
+    });
+    expect(getModelPreset("fal", "unknown-model")).toBeUndefined();
+  });
+
+  test("convertSizeToAspectRatio reduces image sizes", () => {
+    expect(convertSizeToAspectRatio("1024x1024")).toBe("1:1");
+    expect(convertSizeToAspectRatio("1536x1024")).toBe("3:2");
+  });
+
+  test("resolveImageDimensions uses blessed Google aspect ratio defaults", () => {
+    expect(
+      resolveImageDimensions({
+        provider: "google",
+        model: "gemini-3.1-flash-image-preview",
+      })
+    ).toEqual({
+      aspectRatio: "1:1",
+      source: "preset",
+      presetMatched: true,
+    });
+
+    expect(
+      resolveImageDimensions({
+        provider: "google",
+        model: "gemini-3.1-flash-image-preview",
+        configSize: "1536x1024",
+      })
+    ).toEqual({
+      aspectRatio: "3:2",
+      source: "config",
+      presetMatched: true,
+    });
+  });
+
+  test("resolveImageDimensions leaves unknown models at provider defaults", () => {
+    expect(
+      resolveImageDimensions({
+        provider: "fal",
+        model: "fal-ai/custom-model",
+      })
+    ).toEqual({
+      source: "none",
+      presetMatched: false,
+    });
+  });
+
+  test("resolveImageDimensions rejects unsupported explicit aspect ratios", () => {
+    expect(() =>
+      resolveImageDimensions({
+        provider: "openai",
+        model: "gpt-image-1.5",
+        aspectRatio: "16:9",
+      })
+    ).toThrow("does not support aspect ratio");
+  });
+
+  test("formatImageWarning renders warning objects readably", () => {
+    expect(
+      formatImageWarning({
+        type: "unsupported",
+        feature: "size",
+        details: "This model does not support the `size` option.",
+      })
+    ).toBe("size: This model does not support the `size` option.");
+    expect(formatImageWarning({ message: "hello" })).toBe("hello");
   });
 
   test("getModel injects config-backed fal API key into provider requests", async () => {
