@@ -4,6 +4,8 @@ import {
   describeKeySource,
   detectProviderEnv,
   getDefaultModel,
+  getModelPreset,
+  resolveImageDimensions,
   resolveModel,
   resolveProviderSelection,
   validateProvider,
@@ -60,10 +62,23 @@ export const statusCommand = defineCommand({
         const state = matched?.detected
           ? `configured (${matched.matchedSource})`
           : "not configured";
+        const modelId = resolveModel(provider, runtimeConfig.defaults.model);
+        const dimensions = resolveImageDimensions({
+          provider,
+          model: modelId,
+          configSize: runtimeConfig.defaults.size,
+          configAspectRatio: runtimeConfig.defaults.aspectRatio,
+        });
         console.log(`\nSelection: ${provider} (explicit --provider, ${state})`);
-        console.log(
-          `Resolved default model: ${resolveModel(provider, runtimeConfig.defaults.model)}`
-        );
+        console.log(`Resolved default model: ${modelId}`);
+        console.log(`Model preset: ${getModelPreset(provider, modelId) ? "blessed" : "custom/unknown"}`);
+        if (dimensions.aspectRatio) {
+          console.log(`Resolved dimensions: aspectRatio ${dimensions.aspectRatio} (${dimensions.source})`);
+        } else if (dimensions.size) {
+          console.log(`Resolved dimensions: size ${dimensions.size} (${dimensions.source})`);
+        } else {
+          console.log("Resolved dimensions: provider/model default");
+        }
         const keySource = describeKeySource(provider, runtimeConfig.secrets);
         console.log(`Key source: ${keySource}`);
         return;
@@ -76,10 +91,23 @@ export const statusCommand = defineCommand({
       }
 
       const selection = resolveProviderSelection(runtimeConfig.defaults.provider, runtimeConfig.secrets);
+      const modelId = resolveModel(selection.provider, runtimeConfig.defaults.model);
+      const dimensions = resolveImageDimensions({
+        provider: selection.provider,
+        model: modelId,
+        configSize: runtimeConfig.defaults.size,
+        configAspectRatio: runtimeConfig.defaults.aspectRatio,
+      });
       console.log(`\nSelection: ${selection.provider} (${selection.reason})`);
-      console.log(
-        `Resolved default model: ${resolveModel(selection.provider, runtimeConfig.defaults.model)}`
-      );
+      console.log(`Resolved default model: ${modelId}`);
+      console.log(`Model preset: ${getModelPreset(selection.provider, modelId) ? "blessed" : "custom/unknown"}`);
+      if (dimensions.aspectRatio) {
+        console.log(`Resolved dimensions: aspectRatio ${dimensions.aspectRatio} (${dimensions.source})`);
+      } else if (dimensions.size) {
+        console.log(`Resolved dimensions: size ${dimensions.size} (${dimensions.source})`);
+      } else {
+        console.log("Resolved dimensions: provider/model default");
+      }
     } catch (error) {
       console.error("Error:", error instanceof Error ? error.message : error);
       process.exit(1);
