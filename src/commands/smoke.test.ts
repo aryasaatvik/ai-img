@@ -154,6 +154,7 @@ describe("command smoke tests (offline)", () => {
             model: undefined,
             provider: undefined,
             size: undefined,
+            aspectRatio: undefined,
             count: undefined,
             output: undefined,
             outDir: undefined,

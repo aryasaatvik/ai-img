@@ -2,8 +2,10 @@ import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import { generateImage } from "ai";
 import {
+  formatImageWarning,
   getModel,
   requireApiKey,
+  resolveImageDimensions,
   resolveModel,
   resolveProviderSelection,
 } from "../lib/provider";
@@ -79,9 +81,16 @@ export const generateCommand = defineCommand({
       const modelId = resolveModel(provider, flags.model ?? runtimeConfig.defaults.model);
       const model = getModel(provider, modelId, secrets);
 
+      const dimensions = resolveImageDimensions({
+        provider,
+        model: modelId,
+        size: flags.size,
+        aspectRatio: flags.aspectRatio,
+        configSize: runtimeConfig.defaults.size,
+        configAspectRatio: runtimeConfig.defaults.aspectRatio,
+      });
       const count = flags.count ?? runtimeConfig.generate.count;
       const quality = flags.quality ?? runtimeConfig.generate.quality;
-      const size = flags.size ?? runtimeConfig.defaults.size;
       const output = flags.output ?? runtimeConfig.defaults.output;
       const outDir = flags.outDir ?? runtimeConfig.defaults.outDir;
       const outputPath = outDir ? join(outDir, output) : output;
@@ -90,10 +99,12 @@ export const generateCommand = defineCommand({
       console.log(`Generating ${count} image(s) with ${provider}...`);
       console.log(`Prompt: ${flags.prompt}`);
       console.log(`Model: ${modelId}`);
-      if (flags.aspectRatio) {
-        console.log(`Aspect Ratio: ${flags.aspectRatio}`);
+      if (dimensions.aspectRatio) {
+        console.log(`Aspect Ratio: ${dimensions.aspectRatio}`);
+      } else if (dimensions.size) {
+        console.log(`Size: ${dimensions.size}`);
       } else {
-        console.log(`Size: ${size}`);
+        console.log("Dimensions: provider/model default");
       }
 
       const providerOptions: Record<string, any> = {};
@@ -111,9 +122,8 @@ export const generateCommand = defineCommand({
         model,
         prompt: flags.prompt,
         n: count,
-        ...(flags.aspectRatio
-          ? { aspectRatio: flags.aspectRatio as `${number}:${number}` }
-          : { size: size as `${number}x${number}` }),
+        ...(dimensions.aspectRatio ? { aspectRatio: dimensions.aspectRatio } : {}),
+        ...(dimensions.size ? { size: dimensions.size } : {}),
         providerOptions: Object.keys(providerOptions).length > 0 ? providerOptions : undefined,
       });
 
@@ -147,7 +157,7 @@ export const generateCommand = defineCommand({
       if (result.warnings.length > 0) {
         console.log("\nWarnings:");
         for (const warning of result.warnings) {
-          console.log(`  - ${warning}`);
+          console.log(`  - ${formatImageWarning(warning)}`);
         }
       }
 

@@ -2,8 +2,10 @@ import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import { generateImage } from "ai";
 import {
+  formatImageWarning,
   getModel,
   requireApiKey,
+  resolveImageDimensions,
   resolveModel,
   resolveProviderSelection,
 } from "../lib/provider";
@@ -44,6 +46,9 @@ export const editCommand = defineCommand({
       short: "s",
       description: "Image size",
     }),
+    aspectRatio: option(z.string().optional(), {
+      description: "Aspect ratio (e.g., 16:9, 4:3, 1:1)",
+    }),
     count: option(z.coerce.number().min(1).max(10).optional(), {
       short: "c",
       description: "Number of images to generate",
@@ -83,7 +88,14 @@ export const editCommand = defineCommand({
       const modelId = resolveModel(provider, flags.model ?? runtimeConfig.defaults.model);
       const model = getModel(provider, modelId, secrets);
 
-      const size = flags.size ?? runtimeConfig.defaults.size;
+      const dimensions = resolveImageDimensions({
+        provider,
+        model: modelId,
+        size: flags.size,
+        aspectRatio: flags.aspectRatio,
+        configSize: runtimeConfig.defaults.size,
+        configAspectRatio: runtimeConfig.defaults.aspectRatio,
+      });
       const count = flags.count ?? runtimeConfig.edit.count;
       const output = flags.output ?? runtimeConfig.defaults.output;
       const outDir = flags.outDir ?? runtimeConfig.defaults.outDir;
@@ -94,6 +106,13 @@ export const editCommand = defineCommand({
       console.log(`Input: ${flags.input}`);
       console.log(`Prompt: ${flags.prompt}`);
       console.log(`Model: ${modelId}`);
+      if (dimensions.aspectRatio) {
+        console.log(`Aspect Ratio: ${dimensions.aspectRatio}`);
+      } else if (dimensions.size) {
+        console.log(`Size: ${dimensions.size}`);
+      } else {
+        console.log("Dimensions: provider/model default");
+      }
       if (flags.mask) {
         console.log(`Mask: ${flags.mask}`);
       }
@@ -118,7 +137,8 @@ export const editCommand = defineCommand({
           ...(maskBuffer && { mask: maskBuffer }),
         },
         n: count,
-        size: size as `${number}x${number}`,
+        ...(dimensions.aspectRatio ? { aspectRatio: dimensions.aspectRatio } : {}),
+        ...(dimensions.size ? { size: dimensions.size } : {}),
       });
 
       console.log(`\nGenerated ${result.images.length} image(s)`);
@@ -145,6 +165,13 @@ export const editCommand = defineCommand({
           } else {
             console.log(`Preview: skipped (${previewResult.reason ?? "not-rendered"})`);
           }
+        }
+      }
+
+      if (result.warnings.length > 0) {
+        console.log("\nWarnings:");
+        for (const warning of result.warnings) {
+          console.log(`  - ${formatImageWarning(warning)}`);
         }
       }
 

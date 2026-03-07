@@ -2,8 +2,10 @@ import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
 import { generateImage } from "ai";
 import {
+  formatImageWarning,
   getModel,
   requireApiKey,
+  resolveImageDimensions,
   resolveModel,
   resolveProviderSelection,
   validateProvider,
@@ -16,6 +18,7 @@ interface BatchJob {
   prompt: string;
   n?: number;
   size?: string;
+  aspectRatio?: string;
   model?: string;
   provider?: string;
   out?: string;
@@ -97,6 +100,14 @@ export const batchCommand = defineCommand({
             const jobModelInput = job.model || flags.model || runtimeConfig.defaults.model;
             const jobModelId = resolveModel(jobProvider, jobModelInput);
             const model = getModel(jobProvider, jobModelId, secrets);
+            const dimensions = resolveImageDimensions({
+              provider: jobProvider,
+              model: jobModelId,
+              size: job.size,
+              aspectRatio: job.aspectRatio,
+              configSize: runtimeConfig.defaults.size,
+              configAspectRatio: runtimeConfig.defaults.aspectRatio,
+            });
 
             console.log(
               `[${jobIndex + 1}/${lines.length}] Generating (${jobProvider}/${jobModelId}): ${job.prompt?.substring(0, 50)}...`
@@ -109,7 +120,8 @@ export const batchCommand = defineCommand({
                   model,
                   prompt: job.prompt,
                   n: job.n || 1,
-                  size: (job.size as `${number}x${number}`) || runtimeConfig.defaults.size,
+                  ...(dimensions.aspectRatio ? { aspectRatio: dimensions.aspectRatio } : {}),
+                  ...(dimensions.size ? { size: dimensions.size } : {}),
                 });
 
                 for (let imgIdx = 0; imgIdx < result.images.length; imgIdx++) {
@@ -120,6 +132,12 @@ export const batchCommand = defineCommand({
                   await mkdir(dirname(filePath), { recursive: true });
                   await writeFile(filePath, image.uint8Array);
                   console.log(`  Saved: ${filePath}`);
+                }
+
+                if (result.warnings.length > 0) {
+                  for (const warning of result.warnings) {
+                    console.log(`  Warning: ${formatImageWarning(warning)}`);
+                  }
                 }
 
                 return { success: true };
