@@ -1,6 +1,8 @@
 import { readFile, writeFile } from "fs/promises";
 import { resolve } from "path";
+
 import { z } from "zod";
+
 import { AiImgConfigFileSchema } from "../src/lib/config";
 
 const SCHEMA_ID = "https://ai-img.dev/schemas/ai-img.schema.json";
@@ -26,9 +28,7 @@ if (CHECK_MODE) {
   }
 
   if (existing !== output) {
-    console.error(
-      `Schema file is out of date at ${OUTPUT_PATH}. Run: bun run generate:schema`
-    );
+    console.error(`Schema file is out of date at ${OUTPUT_PATH}. Run: bun run generate:schema`);
     process.exit(1);
   }
 

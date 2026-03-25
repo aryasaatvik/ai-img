@@ -1,4 +1,5 @@
 import { defineCommand } from "@bunli/core";
+
 import {
   EDITABLE_CONFIG_KEYS,
   isEditableConfigKey,
@@ -23,7 +24,7 @@ export const configUnsetCommand = defineCommand({
     }
     if (!isEditableConfigKey(key)) {
       throw new Error(
-        `Unsupported key: ${key}. Allowed keys:\n- ${EDITABLE_CONFIG_KEYS.join("\n- ")}`
+        `Unsupported key: ${key}. Allowed keys:\n- ${EDITABLE_CONFIG_KEYS.join("\n- ")}`,
       );
     }
     if (key === "aiImg.schemaVersion") {

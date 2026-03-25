@@ -1,4 +1,5 @@
 import { defineConfig } from "@bunli/core";
+
 import pkg from "./package.json" with { type: "json" };
 
 export default defineConfig({
@@ -11,7 +12,7 @@ export default defineConfig({
   build: {
     entry: "./src/index.ts",
     outdir: "./dist",
-    targets: [],  // JS bundle mode — requires Bun at runtime
+    targets: [], // JS bundle mode — requires Bun at runtime
     minify: true,
     sourcemap: true,
   },

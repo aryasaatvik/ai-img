@@ -6,6 +6,7 @@ import {
   type ImageMimeType,
   type RenderImageOptions,
 } from "@bunli/runtime/image";
+
 import type { ResolvedAiImgRuntimeConfig } from "./config";
 
 export type PreviewMode = "off" | "auto" | "on";
@@ -16,7 +17,7 @@ export interface PreviewFlagInput {
 
 export function resolvePreviewOptions(
   runtimeConfig: ResolvedAiImgRuntimeConfig,
-  flags: PreviewFlagInput
+  flags: PreviewFlagInput,
 ): Pick<RenderImageOptions, "mode" | "protocol" | "width"> {
   const rawFlagMode = flags["image-mode"];
   const flagMode =
@@ -37,7 +38,7 @@ export function resolvePreviewOptions(
 
 export function preflightStrictPreview(
   options: Pick<RenderImageOptions, "mode" | "protocol" | "width">,
-  capability: ImageCapability = detectImageCapability()
+  capability: ImageCapability = detectImageCapability(),
 ): void {
   if (options.mode !== "on") {
     return;
@@ -54,7 +55,7 @@ export function preflightStrictPreview(
 export async function renderPreviewImage(
   imageBytes: Uint8Array,
   options: Pick<RenderImageOptions, "mode" | "protocol" | "width">,
-  outputPath?: string
+  outputPath?: string,
 ): Promise<{ rendered: boolean; reason?: string }> {
   const mimeType = detectPreviewMimeType(imageBytes, outputPath);
   if (!mimeType) {
@@ -70,7 +71,7 @@ export async function renderPreviewImage(
       bytes: imageBytes,
       mimeType,
     },
-    options
+    options,
   );
   if (!result.rendered && options.mode === "on") {
     throw new Error(`Preview failed: ${result.reason ?? "not-rendered"}`);
@@ -87,7 +88,7 @@ export function getPreviewCapability() {
 
 export function detectPreviewMimeType(
   imageBytes: Uint8Array,
-  outputPath?: string
+  outputPath?: string,
 ): ImageMimeType | undefined {
   if (imageBytes.length >= 8) {
     if (

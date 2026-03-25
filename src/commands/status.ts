@@ -1,5 +1,8 @@
 import { defineCommand, option } from "@bunli/core";
 import { z } from "zod";
+
+import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
+import { getPreviewCapability, resolvePreviewOptions } from "../lib/preview";
 import {
   describeKeySource,
   detectProviderEnv,
@@ -10,8 +13,6 @@ import {
   resolveProviderSelection,
   validateProvider,
 } from "../lib/provider";
-import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
-import { getPreviewCapability, resolvePreviewOptions } from "../lib/preview";
 import { imageModeOption } from "./shared/preview-options";
 
 export const statusCommand = defineCommand({
@@ -38,7 +39,7 @@ export const statusCommand = defineCommand({
           ? `configured via ${detection.matchedSource}`
           : "not detected";
         console.log(
-          `- ${detection.provider}: ${envState}; default model: ${getDefaultModel(detection.provider)}`
+          `- ${detection.provider}: ${envState}; default model: ${getDefaultModel(detection.provider)}`,
         );
       }
 
@@ -71,9 +72,13 @@ export const statusCommand = defineCommand({
         });
         console.log(`\nSelection: ${provider} (explicit --provider, ${state})`);
         console.log(`Resolved default model: ${modelId}`);
-        console.log(`Model preset: ${getModelPreset(provider, modelId) ? "blessed" : "custom/unknown"}`);
+        console.log(
+          `Model preset: ${getModelPreset(provider, modelId) ? "blessed" : "custom/unknown"}`,
+        );
         if (dimensions.aspectRatio) {
-          console.log(`Resolved dimensions: aspectRatio ${dimensions.aspectRatio} (${dimensions.source})`);
+          console.log(
+            `Resolved dimensions: aspectRatio ${dimensions.aspectRatio} (${dimensions.source})`,
+          );
         } else if (dimensions.size) {
           console.log(`Resolved dimensions: size ${dimensions.size} (${dimensions.source})`);
         } else {
@@ -90,7 +95,10 @@ export const statusCommand = defineCommand({
         return;
       }
 
-      const selection = resolveProviderSelection(runtimeConfig.defaults.provider, runtimeConfig.secrets);
+      const selection = resolveProviderSelection(
+        runtimeConfig.defaults.provider,
+        runtimeConfig.secrets,
+      );
       const modelId = resolveModel(selection.provider, runtimeConfig.defaults.model);
       const dimensions = resolveImageDimensions({
         provider: selection.provider,
@@ -100,9 +108,13 @@ export const statusCommand = defineCommand({
       });
       console.log(`\nSelection: ${selection.provider} (${selection.reason})`);
       console.log(`Resolved default model: ${modelId}`);
-      console.log(`Model preset: ${getModelPreset(selection.provider, modelId) ? "blessed" : "custom/unknown"}`);
+      console.log(
+        `Model preset: ${getModelPreset(selection.provider, modelId) ? "blessed" : "custom/unknown"}`,
+      );
       if (dimensions.aspectRatio) {
-        console.log(`Resolved dimensions: aspectRatio ${dimensions.aspectRatio} (${dimensions.source})`);
+        console.log(
+          `Resolved dimensions: aspectRatio ${dimensions.aspectRatio} (${dimensions.source})`,
+        );
       } else if (dimensions.size) {
         console.log(`Resolved dimensions: size ${dimensions.size} (${dimensions.source})`);
       } else {

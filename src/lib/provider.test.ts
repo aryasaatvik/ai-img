@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+
 import {
   convertSizeToAspectRatio,
   describeKeySource,
@@ -121,7 +122,7 @@ describe("provider secret precedence", () => {
       resolveImageDimensions({
         provider: "google",
         model: "gemini-3.1-flash-image-preview",
-      })
+      }),
     ).toEqual({
       aspectRatio: "1:1",
       source: "preset",
@@ -133,7 +134,7 @@ describe("provider secret precedence", () => {
         provider: "google",
         model: "gemini-3.1-flash-image-preview",
         configSize: "1536x1024",
-      })
+      }),
     ).toEqual({
       aspectRatio: "3:2",
       source: "config",
@@ -146,7 +147,7 @@ describe("provider secret precedence", () => {
       resolveImageDimensions({
         provider: "fal",
         model: "fal-ai/custom-model",
-      })
+      }),
     ).toEqual({
       source: "none",
       presetMatched: false,
@@ -159,7 +160,7 @@ describe("provider secret precedence", () => {
         provider: "openai",
         model: "gpt-image-1.5",
         aspectRatio: "16:9",
-      })
+      }),
     ).toThrow("does not support aspect ratio");
   });
 
@@ -169,7 +170,7 @@ describe("provider secret precedence", () => {
         type: "unsupported",
         feature: "size",
         details: "This model does not support the `size` option.",
-      })
+      }),
     ).toBe("size: This model does not support the `size` option.");
     expect(formatImageWarning({ message: "hello" })).toBe("hello");
   });
@@ -181,15 +182,10 @@ describe("provider secret precedence", () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async (input, init) => {
       const url =
-        typeof input === "string"
-          ? input
-          : input instanceof URL
-            ? input.toString()
-            : input.url;
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
       const headers = new Headers(
-        init?.headers ??
-          (input instanceof Request ? input.headers : undefined)
+        init?.headers ?? (input instanceof Request ? input.headers : undefined),
       );
 
       if (url === "https://fal.run/fal-ai/flux/dev") {
@@ -201,7 +197,7 @@ describe("provider secret precedence", () => {
           {
             status: 200,
             headers: { "content-type": "application/json" },
-          }
+          },
         );
       }
 

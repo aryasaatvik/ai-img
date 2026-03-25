@@ -10,11 +10,7 @@
           "properties": {
             "provider": {
               "type": "string",
-              "enum": [
-                "openai",
-                "google",
-                "fal"
-              ]
+              "enum": ["openai", "google", "fal"]
             },
             "model": {
               "type": "string",
@@ -44,12 +40,7 @@
           "properties": {
             "quality": {
               "type": "string",
-              "enum": [
-                "low",
-                "medium",
-                "high",
-                "auto"
-              ]
+              "enum": ["low", "medium", "high", "auto"]
             },
             "count": {
               "type": "integer",
@@ -91,18 +82,11 @@
           "properties": {
             "mode": {
               "type": "string",
-              "enum": [
-                "off",
-                "auto",
-                "on"
-              ]
+              "enum": ["off", "auto", "on"]
             },
             "protocol": {
               "type": "string",
-              "enum": [
-                "auto",
-                "kitty"
-              ]
+              "enum": ["auto", "kitty"]
             },
             "width": {
               "type": "integer",
@@ -138,9 +122,7 @@
       "additionalProperties": false
     }
   },
-  "required": [
-    "aiImg"
-  ],
+  "required": ["aiImg"],
   "additionalProperties": false,
   "$id": "https://ai-img.dev/schemas/ai-img.schema.json"
 }

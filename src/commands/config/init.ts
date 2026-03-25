@@ -1,5 +1,11 @@
 import { defineCommand } from "@bunli/core";
-import { createInitialConfig, loadConfigFile, resolveConfigWritePath, writeConfigFile } from "../../lib/config";
+
+import {
+  createInitialConfig,
+  loadConfigFile,
+  resolveConfigWritePath,
+  writeConfigFile,
+} from "../../lib/config";
 import { fileOption, forceOption, targetOption } from "./options";
 
 export const configInitCommand = defineCommand({
@@ -27,7 +33,7 @@ export const configInitCommand = defineCommand({
     const hasExistingData = Object.keys(existing).length > 0;
     if (hasExistingData) {
       throw new Error(
-        `Config file already exists at ${path}. Re-run with --force=true to overwrite.`
+        `Config file already exists at ${path}. Re-run with --force=true to overwrite.`,
       );
     }
 

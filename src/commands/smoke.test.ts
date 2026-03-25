@@ -2,13 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
+
 import { batchCommand } from "./batch";
-import { editCommand } from "./edit";
-import { generateCommand } from "./generate";
 import { configInitCommand } from "./config/init";
 import { configSetCommand } from "./config/set";
 import { configShowCommand } from "./config/show";
 import { configUnsetCommand } from "./config/unset";
+import { editCommand } from "./edit";
+import { generateCommand } from "./generate";
 
 interface TestHandlerArgs<TFlags extends Record<string, unknown>> {
   flags: TFlags;
@@ -39,7 +40,7 @@ interface TestHandlerArgs<TFlags extends Record<string, unknown>> {
 function makeArgs<TFlags extends Record<string, unknown>>(
   cwd: string,
   flags: TFlags,
-  positional: string[] = []
+  positional: string[] = [],
 ): TestHandlerArgs<TFlags> {
   return {
     flags,
@@ -128,8 +129,8 @@ describe("command smoke tests (offline)", () => {
             output: undefined,
             outDir: undefined,
             "image-mode": undefined,
-          }) as unknown as Parameters<NonNullable<typeof generateCommand.handler>>[0]
-        )
+          }) as unknown as Parameters<NonNullable<typeof generateCommand.handler>>[0],
+        ),
       ).rejects.toThrow("__EXIT_1__");
       expect(consoleSpy.errors.join("\n")).toContain("--prompt is required");
       expect(exit.calls.at(-1)).toBe(1);
@@ -160,8 +161,8 @@ describe("command smoke tests (offline)", () => {
             outDir: undefined,
             mask: undefined,
             "image-mode": undefined,
-          }) as unknown as Parameters<NonNullable<typeof editCommand.handler>>[0]
-        )
+          }) as unknown as Parameters<NonNullable<typeof editCommand.handler>>[0],
+        ),
       ).rejects.toThrow("__EXIT_1__");
       expect(consoleSpy.errors.join("\n")).toContain("--input is required");
       expect(exit.calls.at(-1)).toBe(1);
@@ -187,8 +188,8 @@ describe("command smoke tests (offline)", () => {
             model: undefined,
             provider: undefined,
             maxAttempts: undefined,
-          }) as unknown as Parameters<NonNullable<typeof batchCommand.handler>>[0]
-        )
+          }) as unknown as Parameters<NonNullable<typeof batchCommand.handler>>[0],
+        ),
       ).rejects.toThrow("__EXIT_1__");
       expect(consoleSpy.errors.join("\n")).toContain("--input is required");
       expect(exit.calls.at(-1)).toBe(1);
@@ -204,7 +205,7 @@ describe("command smoke tests (offline)", () => {
     await configInitCommand.handler!(
       makeArgs(cwd, { target: "project", file: undefined, force: false }) as unknown as Parameters<
         NonNullable<typeof configInitCommand.handler>
-      >[0]
+      >[0],
     );
 
     const configPath = join(cwd, ".ai-imgrc.json");
@@ -217,7 +218,7 @@ describe("command smoke tests (offline)", () => {
       makeArgs(cwd, { target: "project", file: undefined, secret: false }, [
         "aiImg.defaults.output",
         "custom.png",
-      ]) as unknown as Parameters<NonNullable<typeof configSetCommand.handler>>[0]
+      ]) as unknown as Parameters<NonNullable<typeof configSetCommand.handler>>[0],
     );
 
     const afterSet = JSON.parse(await readFile(configPath, "utf-8")) as {
@@ -228,7 +229,7 @@ describe("command smoke tests (offline)", () => {
     await configUnsetCommand.handler!(
       makeArgs(cwd, { target: "project", file: undefined }, [
         "aiImg.defaults.output",
-      ]) as unknown as Parameters<NonNullable<typeof configUnsetCommand.handler>>[0]
+      ]) as unknown as Parameters<NonNullable<typeof configUnsetCommand.handler>>[0],
     );
 
     const afterUnset = JSON.parse(await readFile(configPath, "utf-8")) as {
@@ -245,7 +246,7 @@ describe("command smoke tests (offline)", () => {
     await configInitCommand.handler!(
       makeArgs(cwd, { target: "project", file: undefined, force: true }) as unknown as Parameters<
         NonNullable<typeof configInitCommand.handler>
-      >[0]
+      >[0],
     );
 
     const content = await readFile(configPath, "utf-8");
@@ -273,15 +274,17 @@ describe("command smoke tests (offline)", () => {
           },
         },
         null,
-        2
+        2,
       ),
-      "utf-8"
+      "utf-8",
     );
 
     const consoleSpy = captureConsole();
     try {
       await configShowCommand.handler!(
-        makeArgs(cwd, {}) as unknown as Parameters<NonNullable<typeof configShowCommand.handler>>[0]
+        makeArgs(cwd, {}) as unknown as Parameters<
+          NonNullable<typeof configShowCommand.handler>
+        >[0],
       );
       const output = consoleSpy.logs.join("\n");
       expect(output).toContain("***redacted***");

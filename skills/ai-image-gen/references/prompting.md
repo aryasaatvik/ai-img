@@ -11,51 +11,54 @@ Good prompts follow this structure:
 ## Examples
 
 ### Product Photography
+
 ```
 White ceramic coffee mug on rustic wooden table, soft studio lighting from left, shallow depth of field, minimalist style, clean background
 ```
 
 ### Illustration
+
 ```
 Cute fox character, watercolor style, forest background, golden hour lighting, whimsical mood, centered composition
 ```
 
 ### 3D Render
+
 ```
 Isometric 3D render of a cozy cabin, snowy mountains in background, low-poly style, soft shadows, warm interior glow
 ```
 
 ## Style Keywords
 
-| Style | Keywords |
-|-------|----------|
+| Style          | Keywords                                       |
+| -------------- | ---------------------------------------------- |
 | Photorealistic | natural light, realistic texture, 8k, detailed |
-| Minimalist | clean, simple, white space, flat |
-| 3D | 3d render, cgi, blender, octane |
-| Illustration | hand-drawn, vector, flat colors |
-| Vintage | retro, 1970s, film grain, warm tones |
-| Cinematic | dramatic lighting, movie still, anamorphic |
+| Minimalist     | clean, simple, white space, flat               |
+| 3D             | 3d render, cgi, blender, octane                |
+| Illustration   | hand-drawn, vector, flat colors                |
+| Vintage        | retro, 1970s, film grain, warm tones           |
+| Cinematic      | dramatic lighting, movie still, anamorphic     |
 
 ## Composition
 
-| Term | Meaning |
-|------|---------|
-| close-up | Tight framing on subject |
-| wide shot | Full environment visible |
-| eye level | Camera at subject height |
-| bird's eye | Top-down view |
-| centered | Subject in middle |
+| Term           | Meaning                        |
+| -------------- | ------------------------------ |
+| close-up       | Tight framing on subject       |
+| wide shot      | Full environment visible       |
+| eye level      | Camera at subject height       |
+| bird's eye     | Top-down view                  |
+| centered       | Subject in middle              |
 | rule of thirds | Subject at intersection points |
 
 ## Lighting
 
-| Term | Effect |
-|------|--------|
-| golden hour | Warm sunset light |
-| soft light | Diffused, gentle shadows |
-| dramatic shadows | High contrast |
-| rim light | Subject outline highlight |
-| backlit | Light from behind |
+| Term             | Effect                    |
+| ---------------- | ------------------------- |
+| golden hour      | Warm sunset light         |
+| soft light       | Diffused, gentle shadows  |
+| dramatic shadows | High contrast             |
+| rim light        | Subject outline highlight |
+| backlit          | Light from behind         |
 
 ## Common Mistakes
 

@@ -1,11 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import {
-  detectPreviewMimeType,
-  preflightStrictPreview,
-  resolvePreviewOptions,
-} from "./preview";
-import type { ResolvedAiImgRuntimeConfig } from "./config";
+
 import type { ImageCapability } from "@bunli/runtime/image";
+
+import type { ResolvedAiImgRuntimeConfig } from "./config";
+import { detectPreviewMimeType, preflightStrictPreview, resolvePreviewOptions } from "./preview";
 
 const baseRuntimeConfig: ResolvedAiImgRuntimeConfig = {
   defaults: {
@@ -41,7 +39,7 @@ describe("preview config resolution", () => {
           width: 72,
         },
       },
-      {}
+      {},
     );
 
     expect(options.mode).toBe("on");
@@ -58,7 +56,7 @@ describe("preview config resolution", () => {
           protocol: "auto",
         },
       },
-      { "image-mode": "on" }
+      { "image-mode": "on" },
     );
 
     expect(options.mode).toBe("on");
@@ -74,10 +72,7 @@ describe("strict preview preflight", () => {
       reason: "not-interactive",
     };
     expect(() =>
-      preflightStrictPreview(
-        { mode: "on", protocol: "auto", width: 32 },
-        unsupported
-      )
+      preflightStrictPreview({ mode: "on", protocol: "auto", width: 32 }, unsupported),
     ).toThrow("Preview unavailable in strict mode: not-interactive");
   });
 
@@ -87,10 +82,7 @@ describe("strict preview preflight", () => {
       protocol: "kitty",
     };
     expect(() =>
-      preflightStrictPreview(
-        { mode: "on", protocol: "kitty", width: 32 },
-        supported
-      )
+      preflightStrictPreview({ mode: "on", protocol: "kitty", width: 32 }, supported),
     ).not.toThrow();
   });
 });
@@ -106,18 +98,7 @@ describe("preview mime detection", () => {
 
   test("detects webp from riff header", () => {
     const webp = new Uint8Array([
-      0x52,
-      0x49,
-      0x46,
-      0x46,
-      0x00,
-      0x00,
-      0x00,
-      0x00,
-      0x57,
-      0x45,
-      0x42,
-      0x50,
+      0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
     ]);
     expect(detectPreviewMimeType(webp)).toBe("image/webp");
   });

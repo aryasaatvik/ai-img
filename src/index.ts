@@ -1,13 +1,15 @@
-import { createCLI } from "@bunli/core";
-import { configMergerPlugin } from "@bunli/plugin-config";
-import { completionsPlugin } from "@bunli/plugin-completions";
 import { resolve } from "path";
-import { generateCommand } from "./commands/generate";
-import { editCommand } from "./commands/edit";
-import { batchCommand } from "./commands/batch";
-import { statusCommand } from "./commands/status";
-import { configCommand } from "./commands/config";
+
+import { createCLI } from "@bunli/core";
+import { completionsPlugin } from "@bunli/plugin-completions";
+import { configMergerPlugin } from "@bunli/plugin-config";
+
 import pkg from "../package.json" with { type: "json" };
+import { batchCommand } from "./commands/batch";
+import { configCommand } from "./commands/config";
+import { editCommand } from "./commands/edit";
+import { generateCommand } from "./commands/generate";
+import { statusCommand } from "./commands/status";
 
 const commandName = Object.keys(pkg.bin ?? {})[0] ?? "ai-img";
 const generatedPath = resolve(import.meta.dir, "..", ".bunli/commands.gen.ts");

@@ -1,6 +1,11 @@
+import { readFile, writeFile, mkdir } from "fs/promises";
+import { dirname, join } from "path";
+
 import { defineCommand, option } from "@bunli/core";
-import { z } from "zod";
 import { generateImage } from "ai";
+import { z } from "zod";
+
+import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
 import {
   formatImageWarning,
   getModel,
@@ -10,9 +15,6 @@ import {
   resolveProviderSelection,
   validateProvider,
 } from "../lib/provider";
-import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
-import { readFile, writeFile, mkdir } from "fs/promises";
-import { dirname, join } from "path";
 
 interface BatchJob {
   prompt: string;
@@ -69,10 +71,7 @@ export const batchCommand = defineCommand({
       const provider = selection.provider;
       requireApiKey(provider, secrets);
 
-      const defaultModelId = resolveModel(
-        provider,
-        flags.model ?? runtimeConfig.defaults.model
-      );
+      const defaultModelId = resolveModel(provider, flags.model ?? runtimeConfig.defaults.model);
       const outDir = flags.outDir ?? runtimeConfig.defaults.outDir ?? "./output";
       const concurrency = flags.concurrency ?? runtimeConfig.batch.concurrency;
       const maxAttempts = flags.maxAttempts ?? runtimeConfig.batch.maxAttempts;
@@ -80,7 +79,10 @@ export const batchCommand = defineCommand({
       await mkdir(outDir, { recursive: true });
 
       const content = await readFile(flags.input, "utf-8");
-      const lines = content.trim().split("\n").filter((line) => line.trim());
+      const lines = content
+        .trim()
+        .split("\n")
+        .filter((line) => line.trim());
 
       console.log(`Default model: ${defaultModelId ?? "provider default"}`);
       console.log(`Processing ${lines.length} jobs with concurrency ${concurrency}...`);
@@ -110,7 +112,7 @@ export const batchCommand = defineCommand({
             });
 
             console.log(
-              `[${jobIndex + 1}/${lines.length}] Generating (${jobProvider}/${jobModelId}): ${job.prompt?.substring(0, 50)}...`
+              `[${jobIndex + 1}/${lines.length}] Generating (${jobProvider}/${jobModelId}): ${job.prompt?.substring(0, 50)}...`,
             );
 
             let attempts = 0;
@@ -152,7 +154,7 @@ export const batchCommand = defineCommand({
             }
 
             return { success: true };
-          })
+          }),
         );
 
         for (const result of results) {

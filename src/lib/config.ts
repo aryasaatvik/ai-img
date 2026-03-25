@@ -1,7 +1,9 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { dirname, resolve } from "path";
+
 import { z } from "zod";
+
 import type { ProviderName } from "./provider";
 
 export type ConfigTarget = "user" | "project";
@@ -16,8 +18,14 @@ const AiImgDefaultsSchema = z
   .object({
     provider: ProviderSchema.optional(),
     model: z.string().min(1).optional(),
-    size: z.string().regex(/^\d+x\d+$/, "Expected WIDTHxHEIGHT").optional(),
-    aspectRatio: z.string().regex(/^\d+:\d+$/, "Expected WIDTH:HEIGHT").optional(),
+    size: z
+      .string()
+      .regex(/^\d+x\d+$/, "Expected WIDTHxHEIGHT")
+      .optional(),
+    aspectRatio: z
+      .string()
+      .regex(/^\d+:\d+$/, "Expected WIDTH:HEIGHT")
+      .optional(),
     output: z.string().min(1).optional(),
     outDir: z.string().min(1).optional(),
   })
@@ -191,22 +199,17 @@ function unwrapSchema(schema: z.ZodTypeAny): z.ZodTypeAny {
 
 function collectLeafSchemas(
   schema: z.ZodTypeAny,
-  prefix: string
+  prefix: string,
 ): Array<[EditableConfigKey, z.ZodTypeAny]> {
   const current = unwrapSchema(schema);
   if (current instanceof z.ZodObject) {
     const entries = Object.entries(current.shape) as Array<[string, z.ZodTypeAny]>;
-    return entries.flatMap(([key, value]) =>
-      collectLeafSchemas(value, `${prefix}.${key}`)
-    );
+    return entries.flatMap(([key, value]) => collectLeafSchemas(value, `${prefix}.${key}`));
   }
   return [[prefix as EditableConfigKey, current]];
 }
 
-function buildLiteralParser(
-  key: EditableConfigKey,
-  schema: z.ZodLiteral
-): z.ZodTypeAny {
+function buildLiteralParser(key: EditableConfigKey, schema: z.ZodLiteral): z.ZodTypeAny {
   const values = [...schema.values];
   const literal = values[0];
 
@@ -219,15 +222,10 @@ function buildLiteralParser(
   if (typeof literal === "string") {
     return schema;
   }
-  throw new Error(
-    `Unsupported literal schema for editable key ${key}: ${typeof literal}`
-  );
+  throw new Error(`Unsupported literal schema for editable key ${key}: ${typeof literal}`);
 }
 
-function buildEditableValueSchema(
-  key: EditableConfigKey,
-  schema: z.ZodTypeAny
-): z.ZodTypeAny {
+function buildEditableValueSchema(key: EditableConfigKey, schema: z.ZodTypeAny): z.ZodTypeAny {
   if (schema instanceof z.ZodString || schema instanceof z.ZodEnum) {
     return schema;
   }
@@ -240,29 +238,25 @@ function buildEditableValueSchema(
   if (schema instanceof z.ZodLiteral) {
     return buildLiteralParser(key, schema);
   }
-  throw new Error(
-    `Unsupported editable schema type for key ${key}: ${schema.constructor.name}`
-  );
+  throw new Error(`Unsupported editable schema type for key ${key}: ${schema.constructor.name}`);
 }
 
 const editableSchemaEntries = collectLeafSchemas(AiImgConfigFileSchema.shape.aiImg, "aiImg");
-const schemaVersionEntry = editableSchemaEntries.find(
-  ([key]) => key === "aiImg.schemaVersion"
-);
+const schemaVersionEntry = editableSchemaEntries.find(([key]) => key === "aiImg.schemaVersion");
 const nonSchemaVersionEntries = editableSchemaEntries.filter(
-  ([key]) => key !== "aiImg.schemaVersion"
+  ([key]) => key !== "aiImg.schemaVersion",
 );
 const orderedEditableEntries = schemaVersionEntry
   ? [schemaVersionEntry, ...nonSchemaVersionEntries]
   : nonSchemaVersionEntries;
 
 export const EDITABLE_CONFIG_KEYS = Object.freeze(
-  orderedEditableEntries.map(([key]) => key)
+  orderedEditableEntries.map(([key]) => key),
 ) as readonly EditableConfigKey[];
 
 const EDITABLE_KEY_SET = new Set<EditableConfigKey>(EDITABLE_CONFIG_KEYS);
 const EDITABLE_KEY_SCHEMAS = new Map<EditableConfigKey, z.ZodTypeAny>(
-  orderedEditableEntries.map(([key, schema]) => [key, buildEditableValueSchema(key, schema)])
+  orderedEditableEntries.map(([key, schema]) => [key, buildEditableValueSchema(key, schema)]),
 );
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -271,7 +265,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function deepMerge<T extends Record<string, unknown>>(
   base: T,
-  incoming: Record<string, unknown>
+  incoming: Record<string, unknown>,
 ): T {
   const output: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(incoming)) {
@@ -367,7 +361,7 @@ function normalizeMergedConfig(merged: Record<string, unknown>): Record<string, 
 }
 
 export async function loadAiImgConfig(
-  options: LoadAiImgConfigOptions = {}
+  options: LoadAiImgConfigOptions = {},
 ): Promise<LoadedAiImgConfig> {
   const cwd = options.cwd ?? process.cwd();
   const sources = options.sources ?? getDefaultConfigSources(cwd);
@@ -396,7 +390,7 @@ export async function loadAiImgConfig(
 }
 
 export function resolveRuntimeConfig(
-  config: AiImgConfig | null | undefined
+  config: AiImgConfig | null | undefined,
 ): ResolvedAiImgRuntimeConfig {
   if (!config) {
     return DEFAULT_RUNTIME_CONFIG;
@@ -437,9 +431,7 @@ export function resolveRuntimeConfig(
   };
 }
 
-export function getProviderSecrets(
-  config: AiImgConfig | null | undefined
-): ProviderSecretMap {
+export function getProviderSecrets(config: AiImgConfig | null | undefined): ProviderSecretMap {
   return resolveRuntimeConfig(config).secrets;
 }
 
@@ -472,7 +464,7 @@ function ensureObject(value: unknown): Record<string, unknown> {
 export function setConfigValue(
   input: AiImgConfigFile | Record<string, unknown>,
   key: string,
-  value: unknown
+  value: unknown,
 ): Record<string, unknown> {
   const root = ensureObject(input);
   const parts = key.split(".");
@@ -490,7 +482,7 @@ export function setConfigValue(
 
 export function unsetConfigValue(
   input: AiImgConfigFile | Record<string, unknown>,
-  key: string
+  key: string,
 ): Record<string, unknown> {
   const root = ensureObject(input);
   const parts = key.split(".");
@@ -524,16 +516,13 @@ export function unsetConfigValue(
 }
 
 export async function loadConfigFile(
-  path: string
+  path: string,
 ): Promise<AiImgConfigFile | Record<string, unknown>> {
   const existing = await readConfigFragment(path);
   return existing ?? {};
 }
 
-export async function writeConfigFile(
-  path: string,
-  value: Record<string, unknown>
-): Promise<void> {
+export async function writeConfigFile(path: string, value: Record<string, unknown>): Promise<void> {
   const parsed = AiImgConfigFileSchema.safeParse(value);
   if (!parsed.success) {
     throw new Error(`Refusing to write invalid config to ${path}: ${formatIssue(parsed.error)}`);

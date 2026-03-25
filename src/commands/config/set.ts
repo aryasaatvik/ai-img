@@ -1,4 +1,5 @@
 import { defineCommand } from "@bunli/core";
+
 import {
   EDITABLE_CONFIG_KEYS,
   isEditableConfigKey,
@@ -25,7 +26,7 @@ export const configSetCommand = defineCommand({
     }
     if (!isEditableConfigKey(key)) {
       throw new Error(
-        `Unsupported key: ${key}. Allowed keys:\n- ${EDITABLE_CONFIG_KEYS.join("\n- ")}`
+        `Unsupported key: ${key}. Allowed keys:\n- ${EDITABLE_CONFIG_KEYS.join("\n- ")}`,
       );
     }
 

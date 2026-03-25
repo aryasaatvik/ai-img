@@ -1,6 +1,6 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createFal } from "@ai-sdk/fal";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { ImageModelV3 } from "@ai-sdk/provider";
 
 export type ProviderName = "openai" | "google" | "fal";
@@ -72,11 +72,7 @@ const PROVIDER_METADATA: Record<ProviderName, ProviderMetadata> = {
     },
   },
   google: {
-    envVars: [
-      "GOOGLE_API_KEY",
-      "GEMINI_API_KEY",
-      "GOOGLE_GENERATIVE_AI_API_KEY",
-    ],
+    envVars: ["GOOGLE_API_KEY", "GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"],
     defaultModel: "gemini-3-pro-image-preview",
     presets: {
       "gemini-2.5-flash-image": {
@@ -149,7 +145,7 @@ function getApiKeyHint(provider: ProviderName): string {
 
 function getApiKeyMatch(
   provider: ProviderName,
-  secrets?: ProviderSecretMap
+  secrets?: ProviderSecretMap,
 ): {
   key?: string;
   sourceType?: "env" | "config";
@@ -173,7 +169,7 @@ function getApiKeyMatch(
 
 export function getApiKeySource(
   provider: ProviderName,
-  secrets?: ProviderSecretMap
+  secrets?: ProviderSecretMap,
 ): {
   sourceType?: "env" | "config";
   envVar?: string;
@@ -213,10 +209,7 @@ export function getDefaultModel(provider: ProviderName): string {
   return PROVIDER_METADATA[provider].defaultModel;
 }
 
-export function getModelPreset(
-  provider: ProviderName,
-  model: string
-): ModelPreset | undefined {
+export function getModelPreset(provider: ProviderName, model: string): ModelPreset | undefined {
   return PROVIDER_METADATA[provider].presets?.[model];
 }
 
@@ -260,15 +253,12 @@ function validateAspectRatioForPreset(
   provider: ProviderName,
   model: string,
   preset: ModelPreset,
-  aspectRatio: AspectRatio
+  aspectRatio: AspectRatio,
 ): void {
-  if (
-    preset.supportedAspectRatios &&
-    !preset.supportedAspectRatios.includes(aspectRatio)
-  ) {
+  if (preset.supportedAspectRatios && !preset.supportedAspectRatios.includes(aspectRatio)) {
     const supported = preset.supportedAspectRatios.join(", ");
     throw new Error(
-      `Model ${provider}/${model} does not support aspect ratio ${aspectRatio}. Supported values: ${supported}.`
+      `Model ${provider}/${model} does not support aspect ratio ${aspectRatio}. Supported values: ${supported}.`,
     );
   }
 }
@@ -278,7 +268,7 @@ function resolveDimensionCandidate(
   model: string,
   preset: ModelPreset | undefined,
   candidate: ImageDimensionCandidate,
-  strictUnsupported: boolean
+  strictUnsupported: boolean,
 ): ImageDimensionResolution | null {
   if (candidate.kind === "size") {
     const size = normalizeImageSize(candidate.value);
@@ -336,7 +326,9 @@ function resolveDimensionCandidate(
   }
 
   if (strictUnsupported) {
-    throw new Error(`Model ${provider}/${model} does not support aspect ratio. Use --size instead.`);
+    throw new Error(
+      `Model ${provider}/${model} does not support aspect ratio. Use --size instead.`,
+    );
   }
 
   return null;
@@ -345,7 +337,7 @@ function resolveDimensionCandidate(
 function getConfigCandidates(
   preset: ModelPreset | undefined,
   size: string | undefined,
-  aspectRatio: string | undefined
+  aspectRatio: string | undefined,
 ): ImageDimensionCandidate[] {
   if (!size && !aspectRatio) {
     return [];
@@ -396,7 +388,7 @@ export function resolveImageDimensions(options: {
         options.model,
         preset,
         { kind: "size", value: options.size, source: "flag" },
-        true
+        true,
       ) ?? {
         source: "none",
         presetMatched: Boolean(preset),
@@ -411,7 +403,7 @@ export function resolveImageDimensions(options: {
         options.model,
         preset,
         { kind: "aspectRatio", value: options.aspectRatio, source: "flag" },
-        true
+        true,
       ) ?? {
         source: "none",
         presetMatched: Boolean(preset),
@@ -422,14 +414,14 @@ export function resolveImageDimensions(options: {
   for (const candidate of getConfigCandidates(
     preset,
     options.configSize,
-    options.configAspectRatio
+    options.configAspectRatio,
   )) {
     const resolved = resolveDimensionCandidate(
       options.provider,
       options.model,
       preset,
       candidate,
-      false
+      false,
     );
     if (resolved) {
       return resolved;
@@ -485,17 +477,14 @@ export function formatImageWarning(warning: unknown): string {
 export function getModel(
   provider: ProviderName,
   model?: string,
-  secrets?: ProviderSecretMap
+  secrets?: ProviderSecretMap,
 ): ImageModelV3 {
   const providerSdk = getProvider(provider, secrets);
   const modelId = resolveModel(provider, model);
   return providerSdk.image(modelId) as ImageModelV3;
 }
 
-export function getApiKey(
-  provider: ProviderName,
-  secrets?: ProviderSecretMap
-): string | undefined {
+export function getApiKey(provider: ProviderName, secrets?: ProviderSecretMap): string | undefined {
   return getApiKeyMatch(provider, secrets).key;
 }
 
@@ -539,7 +528,9 @@ export function formatDetectedProviders(detections: ProviderDetection[]): string
   const detected = detections
     .filter((detection) => detection.detected)
     .map((detection) =>
-      detection.matchedSource ? `${detection.provider} (${detection.matchedSource})` : detection.provider
+      detection.matchedSource
+        ? `${detection.provider} (${detection.matchedSource})`
+        : detection.provider,
     );
 
   if (detected.length === 0) {
@@ -551,7 +542,7 @@ export function formatDetectedProviders(detections: ProviderDetection[]): string
 
 export function resolveProviderSelection(
   requestedProvider?: string,
-  secrets?: ProviderSecretMap
+  secrets?: ProviderSecretMap,
 ): ProviderSelection {
   const detections = detectProviderEnv(secrets);
 
@@ -570,7 +561,7 @@ export function resolveProviderSelection(
       .map((provider) => getApiKeyHint(provider))
       .join("; ");
     throw new Error(
-      `No provider detected. Configure one of: ${allHints}, or pass --provider with configured credentials.`
+      `No provider detected. Configure one of: ${allHints}, or pass --provider with configured credentials.`,
     );
   }
 
@@ -595,7 +586,7 @@ export function resolveProviderSelection(
 export function resolveProviderConfig(
   requestedProvider: string | undefined,
   requestedModel: string | undefined,
-  secrets?: ProviderSecretMap
+  secrets?: ProviderSecretMap,
 ): ProviderConfig {
   const selection = resolveProviderSelection(requestedProvider, secrets);
   const provider = selection.provider;

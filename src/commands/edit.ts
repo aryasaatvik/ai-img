@@ -1,6 +1,12 @@
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { dirname, join } from "path";
+
 import { defineCommand, option } from "@bunli/core";
-import { z } from "zod";
 import { generateImage } from "ai";
+import { z } from "zod";
+
+import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
+import { preflightStrictPreview, renderPreviewImage, resolvePreviewOptions } from "../lib/preview";
 import {
   formatImageWarning,
   getModel,
@@ -9,15 +15,7 @@ import {
   resolveModel,
   resolveProviderSelection,
 } from "../lib/provider";
-import { loadAiImgConfig, resolveRuntimeConfig } from "../lib/config";
-import {
-  preflightStrictPreview,
-  renderPreviewImage,
-  resolvePreviewOptions,
-} from "../lib/preview";
 import { imageModeOption } from "./shared/preview-options";
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { dirname, join } from "path";
 
 export const editCommand = defineCommand({
   name: "edit",
@@ -147,9 +145,8 @@ export const editCommand = defineCommand({
       for (let i = 0; i < result.images.length; i++) {
         const image = result.images[i];
         const ext = output.split(".").pop() || "png";
-        const filePath = count > 1
-          ? outputPath.replace(/\.[^.]+$/, `-${i + 1}.${ext}`)
-          : outputPath;
+        const filePath =
+          count > 1 ? outputPath.replace(/\.[^.]+$/, `-${i + 1}.${ext}`) : outputPath;
 
         await writeFile(filePath, image.uint8Array);
         console.log(`Saved: ${filePath}`);
@@ -158,7 +155,7 @@ export const editCommand = defineCommand({
           const previewResult = await renderPreviewImage(
             image.uint8Array,
             previewOptions,
-            filePath
+            filePath,
           );
           if (previewResult.rendered) {
             console.log(`Preview: rendered (${filePath})`);

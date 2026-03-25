@@ -99,10 +99,12 @@ ai-img completions fish > ~/.config/fish/completions/ai-img.fish
 Supported providers: `openai`, `google`, `fal`.
 
 Credential resolution order is:
+
 1. Environment variables
 2. Config secrets (`aiImg.secrets.<provider>`)
 
 Environment variable names:
+
 - OpenAI: `OPENAI_API_KEY`
 - Google: `GOOGLE_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`
 - Fal: `FAL_API_KEY`
@@ -110,12 +112,14 @@ Environment variable names:
 ## Runtime Config
 
 Config is loaded from these sources (deep merged, later overrides earlier):
+
 1. `~/.config/ai-img/config.json`
 2. `.ai-imgrc`
 3. `.ai-imgrc.json`
 4. `.ai-imgrc.local.json`
 
 Runtime precedence is:
+
 1. CLI flags
 2. Project config
 3. User config
@@ -124,12 +128,14 @@ Runtime precedence is:
 `config init/set/unset` defaults to `--target user`. Use `--target project` to write local project config.
 
 Image dimensions are model-aware:
+
 - Set `aiImg.defaults.size` for size-based models.
 - Set `aiImg.defaults.aspectRatio` for aspect-ratio-based models.
 - If neither is configured, `ai-img` uses a blessed model preset when known, otherwise it leaves dimensions unset and uses the provider/model default.
 - Existing `size` defaults are automatically converted for blessed Google image models when possible.
 
 For preview mode specifically, precedence is:
+
 1. `--image-mode` flag
 2. `aiImg.preview.mode` config
 3. default `auto`
@@ -178,7 +184,7 @@ Set either `size` or `aspectRatio` for a given workflow. If both exist in config
 Batch JSONL jobs can also override dimensions per job with either field:
 
 ```json
-{"prompt":"Green terminal UI", "aspectRatio":"16:9"}
+{ "prompt": "Green terminal UI", "aspectRatio": "16:9" }
 ```
 
 ### Terminal Preview Notes

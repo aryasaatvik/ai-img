@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { basename, join } from "path";
+
 import { z } from "zod";
+
 import {
   AiImgConfigSchema,
   EDITABLE_CONFIG_KEYS,
@@ -46,7 +48,7 @@ function collectLeafPaths(schema: z.ZodTypeAny, prefix = ""): string[] {
   const current = unwrapSchema(schema);
   if (current instanceof z.ZodObject) {
     return Object.entries(current.shape).flatMap(([key, value]) =>
-      collectLeafPaths(value, prefix ? `${prefix}.${key}` : key)
+      collectLeafPaths(value, prefix ? `${prefix}.${key}` : key),
     );
   }
   return [prefix];
@@ -177,9 +179,7 @@ describe("config validation + mutators", () => {
       .filter((path) => path.startsWith("aiImg."))
       .map((path) => path as (typeof EDITABLE_CONFIG_KEYS)[number]);
 
-    expect(new Set(EDITABLE_CONFIG_KEYS)).toEqual(
-      new Set(schemaLeafPaths)
-    );
+    expect(new Set(EDITABLE_CONFIG_KEYS)).toEqual(new Set(schemaLeafPaths));
     expect(EDITABLE_CONFIG_KEYS[0]).toBe("aiImg.schemaVersion");
     expect(isEditableConfigKey("aiImg.defaults")).toBe(false);
     expect(isEditableConfigKey("aiImg.defaults.output")).toBe(true);
@@ -188,14 +188,10 @@ describe("config validation + mutators", () => {
     expect(parseEditableConfigValue("aiImg.preview.mode", "on")).toBe("on");
     expect(parseEditableConfigValue("aiImg.schemaVersion", "1")).toBe(1);
     expect(parseEditableConfigValue("aiImg.defaults.aspectRatio", "16:9")).toBe("16:9");
-    expect(() => parseEditableConfigValue("aiImg.batch.concurrency", "0")).toThrow(
-      "Invalid value"
-    );
-    expect(() => parseEditableConfigValue("aiImg.defaults.size", "1024")).toThrow(
-      "Invalid value"
-    );
+    expect(() => parseEditableConfigValue("aiImg.batch.concurrency", "0")).toThrow("Invalid value");
+    expect(() => parseEditableConfigValue("aiImg.defaults.size", "1024")).toThrow("Invalid value");
     expect(() => parseEditableConfigValue("aiImg.defaults.aspectRatio", "1024x1024")).toThrow(
-      "Invalid value"
+      "Invalid value",
     );
     expect(() => parseEditableConfigValue("aiImg.schemaVersion", "2")).toThrow("Invalid value");
   });
@@ -223,10 +219,7 @@ describe("config validation + mutators", () => {
 
     const withSecret = setConfigValue(initial, "aiImg.secrets.openai", "sk-test");
     const redacted = redactSecrets(withSecret as typeof initial);
-    const secrets = (redacted.aiImg as Record<string, unknown>).secrets as Record<
-      string,
-      unknown
-    >;
+    const secrets = (redacted.aiImg as Record<string, unknown>).secrets as Record<string, unknown>;
     expect(secrets.openai).toBe("***redacted***");
   });
 
@@ -236,6 +229,6 @@ describe("config validation + mutators", () => {
     const initial = createInitialConfig();
     await writeConfigFile(path, initial);
     const written = await readFile(path, "utf-8");
-    expect(written).toContain("\"schemaVersion\": 1");
+    expect(written).toContain('"schemaVersion": 1');
   });
 });

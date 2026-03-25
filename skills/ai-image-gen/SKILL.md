@@ -8,6 +8,7 @@ description: "Generate or edit images using the ai-img CLI with AI SDK (multi-pr
 Generate or edit images using the **ai-img** CLI with Vercel AI SDK.
 
 ## When to use
+
 - Generate images from text prompts
 - Edit existing images with AI (inpainting, style transfer)
 - Batch process multiple image generation jobs
@@ -15,6 +16,7 @@ Generate or edit images using the **ai-img** CLI with Vercel AI SDK.
 ## Prerequisites
 
 1. **Install CLI:**
+
    ```bash
    # Option 1: Install globally with Bun (recommended)
    bun add -g ai-img
@@ -90,26 +92,26 @@ ai-img batch --input jobs.jsonl --outDir ./output --concurrency 5
 
 ## Options Reference
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--prompt, -p` | Text prompt | Required |
-| `--provider, -P` | AI provider: openai, google, fal | openai |
-| `--model, -m` | Model ID | Provider default |
-| `--size, -s` | Image size (WxH) | 1024x1024 |
-| `--aspectRatio` | Aspect ratio (e.g., 16:9) - for Gemini | - |
-| `--count, -c` | Number of images | 1 |
-| `--seed` | Random seed | Random |
-| `--quality` | Quality: low/medium/high/auto | auto |
-| `--output, -o` | Output file path | output.png |
-| `--outDir` | Output directory | Current dir |
+| Flag             | Description                            | Default          |
+| ---------------- | -------------------------------------- | ---------------- |
+| `--prompt, -p`   | Text prompt                            | Required         |
+| `--provider, -P` | AI provider: openai, google, fal       | openai           |
+| `--model, -m`    | Model ID                               | Provider default |
+| `--size, -s`     | Image size (WxH)                       | 1024x1024        |
+| `--aspectRatio`  | Aspect ratio (e.g., 16:9) - for Gemini | -                |
+| `--count, -c`    | Number of images                       | 1                |
+| `--seed`         | Random seed                            | Random           |
+| `--quality`      | Quality: low/medium/high/auto          | auto             |
+| `--output, -o`   | Output file path                       | output.png       |
+| `--outDir`       | Output directory                       | Current dir      |
 
 ## Providers & Models
 
-| Provider | Default Model | Environment Variable |
-|----------|---------------|---------------------|
-| OpenAI | gpt-image-1.5 | OPENAI_API_KEY |
-| Google | imagen-3.0-generate-002 | GOOGLE_API_KEY or GEMINI_API_KEY |
-| FAL AI | fal-ai/flux/dev | FAL_API_KEY |
+| Provider | Default Model           | Environment Variable             |
+| -------- | ----------------------- | -------------------------------- |
+| OpenAI   | gpt-image-1.5           | OPENAI_API_KEY                   |
+| Google   | imagen-3.0-generate-002 | GOOGLE_API_KEY or GEMINI_API_KEY |
+| FAL AI   | fal-ai/flux/dev         | FAL_API_KEY                      |
 
 See `references/providers.md` for full model list.
 
@@ -125,16 +127,19 @@ See `references/prompting.md` for detailed guidance.
 ## Examples
 
 ### Product Photography
+
 ```bash
 ai-img generate --prompt "White ceramic mug on wooden table, product photography, soft natural light, clean background" --provider openai --size 1024x1024 --quality high
 ```
 
 ### Icon Generation
+
 ```bash
 ai-img generate --prompt "Simple geometric rocket icon, flat design, blue and white, minimal" --provider fal --model "fal-ai/flux/dev" --size 512x512
 ```
 
 ### Background Replacement
+
 ```bash
 ai-img edit --input product.jpg --prompt "Replace background with warm sunset gradient, keep product unchanged" --provider openai
 ```
